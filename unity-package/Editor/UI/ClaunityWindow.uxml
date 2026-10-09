@@ -1,0 +1,357 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements">
+    <Style src="ClaunityWindow.uss" />
+    <ui:VisualElement name="root" class="root">
+
+        <!-- ═══ Welcome screen ═══════════════════════════════════════ -->
+        <ui:VisualElement name="welcome-screen" class="welcome-screen">
+            <ui:VisualElement class="welcome-logo-block">
+                <ui:Image name="logo-image" class="welcome-logo-img" />
+                <ui:Label text="Claunity" class="welcome-logo" />
+                <ui:Label text="AI assistant for Unity Editor" class="welcome-tagline" />
+            </ui:VisualElement>
+            <ui:Label name="welcome-status" text="Checking..." class="welcome-status" />
+            <ui:Button name="welcome-action-btn" text="" class="welcome-action-btn welcome-action-btn--hidden" />
+            <ui:VisualElement name="welcome-progress" class="welcome-progress welcome-progress--hidden">
+                <ui:VisualElement class="welcome-progress-track">
+                    <ui:VisualElement name="welcome-progress-fill" class="welcome-progress-fill" />
+                </ui:VisualElement>
+                <ui:Label name="welcome-progress-label" text="0%" class="welcome-progress-label" />
+            </ui:VisualElement>
+            <ui:Label name="welcome-hint" text="" class="welcome-hint" />
+        </ui:VisualElement>
+
+        <!-- ═══ Main UI (hidden until Start) ════════════════════════ -->
+        <ui:VisualElement name="main-ui" class="main-ui main-ui--hidden">
+
+            <!-- Header -->
+            <ui:VisualElement name="header" class="header">
+                <ui:VisualElement name="logo-btn" class="logo-btn">
+                    <ui:Image name="header-logo-img" class="header-logo-img" />
+                    <ui:Label text="Claunity" class="logo" />
+                </ui:VisualElement>
+                <ui:VisualElement name="connection-dot" class="connection-dot connection-dot--disconnected" />
+                <ui:Label name="error-badge" text="" class="error-badge error-badge--hidden" />
+                <ui:Button name="settings-btn" text="⚙" class="settings-btn" />
+            </ui:VisualElement>
+
+            <!-- Mode tabs -->
+            <ui:VisualElement name="tabs" class="tabs">
+                <ui:Button name="tab-chat"  text="💬 CHAT"  class="tab" />
+                <ui:VisualElement class="tab-alpha-wrap">
+                    <ui:Button name="tab-project" text="🗂 PROJECT" class="tab" />
+                    <ui:Label text="BETA" class="tab-alpha-badge" />
+                </ui:VisualElement>
+                <ui:VisualElement class="tab-alpha-wrap">
+                    <ui:Button name="tab-test" text="🎮 TEST" class="tab" />
+                    <ui:Label text="BETA" class="tab-alpha-badge" />
+                </ui:VisualElement>
+                <ui:VisualElement class="tab-alpha-wrap">
+                    <ui:Button name="tab-scout" text="🔍 SCOUT" class="tab" />
+                    <ui:Label text="BETA" class="tab-alpha-badge" />
+                </ui:VisualElement>
+                <ui:Button name="tab-build" text="🔨 BUILD"  class="tab" />
+            </ui:VisualElement>
+
+            <!-- Chat view -->
+            <ui:VisualElement name="chat-view" class="chat-view">
+                <ui:VisualElement name="mode-splash" class="mode-splash" />
+                <ui:VisualElement name="chat-toolbar" class="chat-toolbar chat-toolbar--hidden">
+                    <ui:Label name="index-status" text="" class="index-status" />
+                    <ui:Label name="session-token-counter" text="" class="session-token-counter" />
+                    <ui:Button name="continue-btn" text="↩  Continue" class="continue-btn continue-btn--hidden" />
+                    <ui:Button name="clear-btn" text="🗑  Clear chat" class="clear-btn" />
+                </ui:VisualElement>
+                <ui:ScrollView name="chat-scroll" class="chat-scroll chat-scroll--hidden">
+                    <ui:VisualElement name="chat-container" class="chat-container" />
+                </ui:ScrollView>
+                <ui:VisualElement name="thinking-indicator" class="thinking-indicator">
+                    <ui:Label text="C" class="avatar avatar--sm" />
+                    <ui:Label name="thinking-dots" text="·  " class="thinking-dots" />
+                </ui:VisualElement>
+                <ui:VisualElement name="mention-dropdown" class="mention-dropdown mention-dropdown--hidden">
+                    <ui:VisualElement name="mention-list" class="mention-list" />
+                </ui:VisualElement>
+                <ui:VisualElement name="input-area" class="input-area">
+                    <ui:VisualElement name="loading-bar" class="loading-bar loading-bar--hidden">
+                        <ui:Label name="loading-text" text="Claunity is working" class="loading-text" />
+                        <ui:VisualElement class="loading-track">
+                            <ui:VisualElement name="loading-fill" class="loading-fill" />
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+                    <ui:Button name="model-selector-btn" text="Sonnet" class="model-selector-btn" />
+                    <ui:TextField name="input-field" class="input-field" multiline="true" />
+                    <ui:Button name="send-btn" text="↑" class="send-btn send-btn--disabled" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+
+            <!-- Project view -->
+            <ui:VisualElement name="project-view" class="project-view project-view--hidden">
+
+                <!-- ─── Planning phase ─── -->
+                <ui:VisualElement name="project-chat-phase" class="project-chat-phase">
+
+                    <!-- Idle splash (shown when no plan loaded) -->
+                    <ui:VisualElement name="project-idle-splash" class="project-idle-splash">
+                        <ui:Label text="🗂" class="splash-icon" />
+                        <ui:Label text="Project Mode" class="splash-name" />
+                        <ui:Label text="Load your GDD or project brief — Claunity asks a few questions, generates a plan, and builds the project step by step." class="splash-desc" />
+                        <ui:Button name="project-upload-btn" text="📄   Load GDD / brief" class="project-upload-btn-big" />
+                    </ui:VisualElement>
+
+                    <!-- Active area (shown after file loaded) -->
+                    <ui:VisualElement name="project-active-area" class="project-active-area project-active-area--hidden">
+                        <ui:VisualElement name="project-file-bar" class="project-upload-bar">
+                            <ui:Label name="project-file-info" text="" class="project-file-info" />
+                        </ui:VisualElement>
+                        <ui:ScrollView name="project-chat-scroll" class="chat-scroll">
+                            <ui:VisualElement name="project-chat-container" class="chat-container" />
+                        </ui:ScrollView>
+                        <ui:VisualElement name="project-thinking-indicator" class="thinking-indicator">
+                            <ui:Label text="C" class="avatar avatar--sm" />
+                            <ui:Label name="project-thinking-dots" text="·  " class="thinking-dots" />
+                        </ui:VisualElement>
+                        <ui:VisualElement name="project-start-bar" class="project-start-bar project-start-bar--hidden">
+                            <ui:Button name="project-start-btn" text="▶   Start Building" class="project-start-btn" />
+                        </ui:VisualElement>
+                        <ui:VisualElement name="project-done-bar" class="project-start-bar project-start-bar--hidden">
+                            <ui:Button name="project-new-file-btn" text="＋   Load New Project" class="project-start-btn" />
+                        </ui:VisualElement>
+                        <ui:VisualElement name="project-input-area" class="input-area">
+                            <ui:TextField name="project-input-field" class="input-field" multiline="true" />
+                            <ui:Button name="project-send-btn" text="↑" class="send-btn send-btn--disabled" />
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+
+                </ui:VisualElement>
+
+                <!-- ─── Board phase (execution) ─── -->
+                <ui:VisualElement name="project-board-phase" class="project-board-phase project-board-phase--hidden">
+                    <ui:Label name="project-board-status" text="" class="project-board-status" />
+                    <ui:ScrollView name="project-board-scroll" class="project-board-scroll">
+                        <ui:VisualElement name="project-board-content" class="project-board-content" />
+                    </ui:ScrollView>
+                    <ui:VisualElement name="project-question-block" class="project-question-block project-question-block--hidden">
+                        <ui:Label name="project-question-text" text="" class="project-question-text" />
+                        <ui:VisualElement class="project-answer-row">
+                            <ui:TextField name="project-answer-field" class="input-field project-answer-field" multiline="false" />
+                            <ui:Button name="project-answer-btn" text="↑" class="send-btn" />
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+                    <ui:VisualElement name="project-loading-bar" class="project-loading-bar loading-bar--hidden">
+                        <ui:Label name="project-loading-text" text="Working..." class="loading-text" />
+                        <ui:VisualElement class="loading-track">
+                            <ui:VisualElement name="project-loading-fill" class="loading-fill" />
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+                    <ui:VisualElement name="project-control-bar" class="project-control-bar">
+                        <ui:Button name="project-board-start-btn" text="▶   Start Building" class="project-start-btn project-board-start-btn--hidden" />
+                        <ui:Button name="project-pause-btn"       text="⏸  Pause"          class="project-ctrl-btn project-pause-btn" />
+                        <ui:Button name="project-continue-btn"    text="▶▶  Continue"       class="project-ctrl-btn project-continue-btn" />
+                    </ui:VisualElement>
+                </ui:VisualElement>
+
+            </ui:VisualElement>
+
+            <!-- Build view -->
+            <ui:VisualElement name="build-view" class="build-view build-view--hidden">
+                <ui:ScrollView class="build-scroll">
+                    <ui:VisualElement class="build-form">
+
+                        <ui:Label text="BUILD NAME" class="build-label" />
+                        <ui:TextField name="build-name-field" value="MyGame" class="build-text-field" />
+
+                        <ui:Label text="PLATFORM" class="build-label" />
+                        <ui:DropdownField name="build-platform-dropdown" class="build-dropdown" />
+
+                        <ui:Label text="OUTPUT PATH" class="build-label" />
+                        <ui:VisualElement class="build-path-row">
+                            <ui:TextField name="build-path-field" value="Builds/" class="build-path-field" />
+                            <ui:Button name="build-browse-btn" text="..." class="build-browse-btn" />
+                        </ui:VisualElement>
+
+                        <ui:Label text="SCENES" class="build-label" />
+                        <ui:VisualElement class="build-radio-group">
+                            <ui:VisualElement class="build-radio-row">
+                                <ui:Toggle name="build-scenes-all-toggle" class="build-radio" value="true" />
+                                <ui:Label text="All from Build Settings" class="build-radio-label" />
+                            </ui:VisualElement>
+                            <ui:VisualElement class="build-radio-row">
+                                <ui:Toggle name="build-scenes-current-toggle" class="build-radio" />
+                                <ui:Label text="Current scene only" class="build-radio-label" />
+                            </ui:VisualElement>
+                        </ui:VisualElement>
+
+                        <ui:Label text="OPTIONS" class="build-label" />
+                        <ui:VisualElement class="build-options-group">
+                            <ui:VisualElement class="build-option-row">
+                                <ui:Toggle name="build-dev-toggle" class="build-option-toggle" />
+                                <ui:Label text="Development Build" class="build-option-label" />
+                            </ui:VisualElement>
+                            <ui:VisualElement class="build-option-row">
+                                <ui:Toggle name="build-debug-toggle" class="build-option-toggle" />
+                                <ui:Label text="Script Debugging" class="build-option-label" />
+                            </ui:VisualElement>
+                        </ui:VisualElement>
+
+                    </ui:VisualElement>
+                </ui:ScrollView>
+
+                <ui:Button name="build-btn" text="▶   BUILD" class="build-run-btn" />
+
+                <!-- Smart build result panel (hidden until first build) -->
+                <ui:VisualElement name="build-result" class="build-result build-result--hidden">
+                    <ui:VisualElement class="build-result-divider" />
+
+                    <!-- Iteration log -->
+                    <ui:ScrollView name="build-log-scroll" class="build-log-scroll">
+                        <ui:VisualElement name="build-log" class="build-log" />
+                    </ui:ScrollView>
+
+                    <!-- Final summary row -->
+                    <ui:Label name="build-result-summary" text="" class="build-result-summary" />
+                    <ui:Label name="build-result-path"    text="" class="build-result-path" />
+                    <ui:Button name="build-open-folder-btn" text="📂  Open Folder" class="build-open-folder-btn build-open-folder-btn--hidden" />
+                </ui:VisualElement>
+
+            </ui:VisualElement>
+
+            <!-- Picker overlay -->
+            <ui:VisualElement name="picker-overlay" class="picker-overlay picker-overlay--hidden">
+                <ui:VisualElement class="picker-panel">
+                    <ui:Label name="picker-title" text="Select Script" class="picker-title" />
+                    <ui:TextField name="picker-search" class="picker-search" />
+                    <ui:ScrollView name="picker-scroll" class="picker-scroll">
+                        <ui:VisualElement name="picker-list" class="picker-list" />
+                    </ui:ScrollView>
+                    <ui:Button name="picker-cancel-btn" text="Cancel" class="picker-cancel-btn" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+
+            <!-- Test Dashboard -->
+            <ui:VisualElement name="test-dashboard" class="test-dashboard test-dashboard--hidden">
+                <ui:VisualElement name="test-empty-splash" class="test-empty-splash">
+                    <ui:Label text="🎮" class="splash-icon" />
+                    <ui:Label text="Play &amp; Test Mode" class="splash-name" />
+                    <ui:Label text="Press Run Test — Claunity enters Play Mode, captures a screenshot, reads the console, and returns a structured bug report." class="splash-desc" />
+                </ui:VisualElement>
+                <ui:ScrollView name="test-scroll" class="test-scroll test-scroll--hidden">
+                    <ui:VisualElement name="test-content" class="test-content" />
+                </ui:ScrollView>
+                <ui:VisualElement name="test-loading-bar" class="test-loading-bar test-loading-bar--hidden">
+                    <ui:Label name="test-loading-text" text="Entering Play Mode..." class="loading-text" />
+                    <ui:VisualElement class="loading-track">
+                        <ui:VisualElement name="test-loading-fill" class="loading-fill" />
+                    </ui:VisualElement>
+                </ui:VisualElement>
+                <ui:Button name="test-run-bar-btn" text="▶   Run Test" class="test-run-bar-btn" />
+            </ui:VisualElement>
+
+            <!-- Scout view -->
+            <ui:VisualElement name="scout-view" class="scout-view scout-view--hidden">
+
+                <!-- Idle splash -->
+                <ui:VisualElement name="scout-idle-splash" class="project-idle-splash">
+                    <ui:Label text="🔍" class="splash-icon" />
+                    <ui:Label text="Asset Store Scout" class="splash-name" />
+                    <ui:Label text="Describe your game — Claunity finds the best Unity Asset Store assets for your project in seconds." class="splash-desc" />
+                </ui:VisualElement>
+
+                <!-- Input area -->
+                <ui:VisualElement name="scout-input-area" class="scout-input-area">
+                    <ui:TextField name="scout-input-field" class="scout-input-field" multiline="true" placeholder-text="Describe the asset you need (e.g. procedural spider with IK, stylized FPS controller)..." />
+                    <ui:VisualElement class="scout-controls-row">
+                        <ui:Toggle name="scout-free-only" class="build-option-toggle" />
+                        <ui:Label text="Free only" class="build-option-label" />
+                        <ui:Button name="scout-search-btn" text="🔍  Find Assets" class="scout-search-btn" />
+                    </ui:VisualElement>
+                </ui:VisualElement>
+
+                <!-- Loading -->
+                <ui:VisualElement name="scout-loading" class="scout-loading scout-loading--hidden">
+                    <ui:Label name="scout-loading-text" text="Analyzing your game..." class="loading-text" />
+                    <ui:VisualElement class="loading-track">
+                        <ui:VisualElement name="scout-loading-fill" class="loading-fill" />
+                    </ui:VisualElement>
+                </ui:VisualElement>
+
+                <!-- Results -->
+                <ui:ScrollView name="scout-scroll" class="scout-scroll scout-scroll--hidden">
+                    <ui:VisualElement name="scout-results" class="scout-results" />
+                </ui:ScrollView>
+
+            </ui:VisualElement>
+
+            <!-- Settings panel -->
+            <ui:ScrollView name="settings-panel" class="settings-panel">
+                <ui:Label text="Settings" class="settings-title" />
+
+                <!-- ── BACKEND ── -->
+                <ui:Label text="BACKEND" class="settings-section-label" />
+                <ui:VisualElement class="settings-section">
+                    <ui:VisualElement class="settings-row">
+                        <ui:VisualElement name="backend-status-dot" class="backend-dot backend-dot--on" />
+                        <ui:Label name="backend-status-label" text="Running" class="settings-sublabel" />
+                    </ui:VisualElement>
+                    <ui:VisualElement class="backend-btn-row">
+                        <ui:Button name="backend-stop-btn"    text="⏹  Stop"    class="backend-btn backend-btn--stop" />
+                        <ui:Button name="backend-restart-btn" text="↺  Restart" class="backend-btn" />
+                    </ui:VisualElement>
+                </ui:VisualElement>
+
+                <!-- ── AI ── -->
+                <ui:Label text="AI" class="settings-section-label" />
+                <ui:VisualElement class="settings-section">
+                    <ui:Label text="SOURCE" class="settings-label" />
+                    <ui:DropdownField name="ai-source-dropdown" class="settings-dropdown" />
+
+                    <ui:VisualElement name="api-source-section">
+                        <ui:Label text="MODEL" class="settings-label" />
+                        <ui:DropdownField name="model-dropdown" class="settings-dropdown" />
+
+                        <ui:Label text="API KEY" class="settings-label" />
+                        <ui:VisualElement class="api-key-row">
+                            <ui:TextField name="api-key-field" class="api-key-field" />
+                            <ui:Button name="toggle-key-btn" text="👁" class="icon-btn" />
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+
+                    <ui:Button name="test-connection-btn" text="Test Connection" class="test-btn" style="margin-top: 6px;" />
+                    <ui:Label  name="connection-status"   text=""               class="connection-status" />
+                </ui:VisualElement>
+
+                <!-- ── CONTEXT ── -->
+                <ui:Label text="CONTEXT" class="settings-section-label" />
+                <ui:VisualElement class="settings-section">
+                    <ui:VisualElement class="settings-row">
+                        <ui:Label text="Last messages sent to AI" class="settings-sublabel" />
+                        <ui:IntegerField name="history-limit-field" value="4" class="history-limit-field" />
+                    </ui:VisualElement>
+                    <ui:Label text="PERSONAL PROMPT" class="settings-label" style="margin-top: 10px;" />
+                    <ui:Label text="Describe yourself and your project." class="settings-sublabel" />
+                    <ui:TextField name="personal-prompt-field" class="personal-prompt-field" multiline="true" />
+                </ui:VisualElement>
+
+                <ui:VisualElement class="spacer" />
+                <ui:Button name="save-btn" text="Save" class="save-btn" />
+
+                <!-- ── DATA ── -->
+                <ui:Label text="DATA" class="settings-section-label" />
+                <ui:VisualElement class="settings-section">
+                    <ui:Button name="clear-data-btn" text="Clear Chat History" class="clear-data-btn" />
+                    <ui:Label  name="clear-data-status" text="" class="connection-status" />
+                </ui:VisualElement>
+
+                <!-- ── USAGE ── -->
+                <ui:Label text="USAGE" class="settings-section-label" />
+                <ui:VisualElement class="settings-section">
+                    <ui:Label name="daily-usage-label" text="Today: loading..." class="connection-status" />
+                    <ui:Button name="reset-usage-btn" text="Reset Counter" class="clear-data-btn" style="margin-top: 4px;" />
+                </ui:VisualElement>
+
+                <ui:Label name="app-version-label" text="" class="app-version-label" />
+            </ui:ScrollView>
+
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

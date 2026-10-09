@@ -1,0 +1,19 @@
+{
+  "name": "com.claunity.editor",
+  "version": "1.0.0",
+  "displayName": "Claunity",
+  "description": "AI assistant built into the Unity Editor. Chat with your scene, write scripts, fix errors, test your game and plan projects in natural language. Runs a small local Python backend; works with your own Anthropic API key or the Claude Code CLI.",
+  "unity": "2021.3",
+  "documentationUrl": "https://github.com/vitaliihalak/claunity#readme",
+  "changelogUrl": "https://github.com/vitaliihalak/claunity/releases",
+  "licensesUrl": "https://github.com/vitaliihalak/claunity/blob/main/LICENSE",
+  "license": "MIT",
+  "keywords": [ "ai", "assistant", "editor", "claude", "llm", "tools" ],
+  "author": {
+    "name": "Vitalii Halak",
+    "url": "https://github.com/vitaliihalak"
+  },
+  "dependencies": {
+    "com.unity.editorcoroutines": "1.0.0"
+  }
+}

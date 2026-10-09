@@ -16,9 +16,6 @@ namespace Claunity
 
 public partial class ClaunityWindow
 {
-    // ══════════════════════════════════════════════════════════════════════════
-    // CHAT — bubbles, input, streaming, actions, history
-    // ══════════════════════════════════════════════════════════════════════════
 
     // ── Project Intelligence ───────────────────────────────────────────────────
 
@@ -33,7 +30,6 @@ public partial class ClaunityWindow
 
         _indexedCount = paths.Length;
 
-        // Take snapshot of write times on first index (session start)
         if (_sessionSnapshot.Count == 0)
         {
             foreach (var p in paths)
@@ -43,7 +39,6 @@ public partial class ClaunityWindow
             }
         }
 
-        // Determine which files changed since session start
         var changedPaths = paths
             .Where(p => {
                 try {
@@ -83,10 +78,7 @@ public partial class ClaunityWindow
 
     // ── Client-side rate limiter ──────────────────────────────────────────────
 
-    /// <summary>
-    /// Returns false and shows a warning dialog if too many requests were sent recently.
-    /// Call this before every /chat request. Returns true if safe to proceed.
-    /// </summary>
+    /// <summary>Returns false and shows a warning dialog if too many requests were sent recently.</summary>
     private bool CheckClientRateLimit()
     {
         if (_ratePausedByUser) return false;
@@ -99,7 +91,6 @@ public partial class ClaunityWindow
         {
             _ratePausedByUser = true;
 
-            // Stop any active project execution
             if (_projectExecuting)
             {
                 _projectPauseRequested = true;
@@ -144,11 +135,9 @@ public partial class ClaunityWindow
         _sessionInputTokens  += inputTokens;
         _sessionOutputTokens += outputTokens;
 
-        // Update session counter in toolbar
         if (_sessionTokenCounter != null)
             _sessionTokenCounter.text = $"↑ {FormatTokens(_sessionInputTokens)}  ↓ {FormatTokens(_sessionOutputTokens)}";
 
-        // Add per-message usage label to chat (last message in container)
         if (_chatContainer != null && _chatContainer.childCount > 0)
         {
             var lbl = new Label($"↑ {FormatTokens(inputTokens)}  ↓ {FormatTokens(outputTokens)}");
@@ -170,10 +159,7 @@ public partial class ClaunityWindow
             @"^\s*(public|protected|private|internal|static|abstract|virtual|override|sealed|\[SerializeField\]|\[Header|\[Tooltip).*$",
             System.Text.RegularExpressions.RegexOptions.Multiline);
 
-    /// <summary>
-    /// Extracts class/struct declarations, public/serialized fields and public method
-    /// signatures from C# source. Gives Claude structural awareness without full code.
-    /// </summary>
+    /// <summary>Extracts class/struct declarations, public/serialized fields and public method signatures from C# source.</summary>
     private static string ExtractSignatures(string source)
     {
         var lines = source.Split('\n');
@@ -183,7 +169,6 @@ public partial class ClaunityWindow
             var line = rawLine.TrimEnd();
             var trimmed = line.TrimStart();
 
-            // Class / struct / interface / enum declarations
             if (System.Text.RegularExpressions.Regex.IsMatch(trimmed,
                 @"^(public|internal|private|protected)\s+(static\s+|abstract\s+|sealed\s+)?(class|struct|interface|enum)\s+"))
             {
@@ -191,14 +176,12 @@ public partial class ClaunityWindow
                 continue;
             }
 
-            // [SerializeField] attribute lines
             if (trimmed.StartsWith("[SerializeField]") || trimmed.StartsWith("[Header") || trimmed.StartsWith("[Tooltip"))
             {
                 result.AppendLine(line);
                 continue;
             }
 
-            // Public fields and properties
             if (System.Text.RegularExpressions.Regex.IsMatch(trimmed,
                 @"^public\s+.+\s+\w+\s*(;|{|\[|=)"))
             {
@@ -206,11 +189,9 @@ public partial class ClaunityWindow
                 continue;
             }
 
-            // Public / protected method signatures (line ending with { or ;)
             if (System.Text.RegularExpressions.Regex.IsMatch(trimmed,
                 @"^(public|protected)\s+.+\s+\w+\s*\(") && (line.Contains("{") || line.TrimEnd().EndsWith(";")))
             {
-                // Strip method body — keep only the signature line
                 var sig = line.Contains("{") ? line.Substring(0, line.IndexOf('{')) + "{}" : line;
                 result.AppendLine(sig.TrimEnd());
                 continue;
@@ -252,7 +233,6 @@ public partial class ClaunityWindow
     private void UpdateContinueBtn()
     {
         if (_continueBtn == null) return;
-        // Show only in chat tab when Claude just responded and is idle
         bool show = _hasMessages && !_waitingForResponse
                     && (_activeTab == "chat");
         _continueBtn.EnableInClassList("continue-btn--hidden", !show);
@@ -409,7 +389,6 @@ public partial class ClaunityWindow
         _chatContainer.Add(row);
         ScrollToBottom();
 
-        // Persist Chat and Project chats
         if (!_rebuilding && (_activeTab == "chat" || _activeTab == "project"))
             SaveChatHistory();
     }
@@ -766,7 +745,6 @@ public partial class ClaunityWindow
         UpdateSendButton();
         StartThinking();
 
-        // Capture the screenshot synchronously and pass directly as image
         var result = ClaunityActionExecutor.Execute(new ActionPayload { type = "take_screenshot", view = view });
         string base64 = null;
         if (result != null && result.Length > 8 && result.StartsWith("[IMAGE:") && result.EndsWith("]"))
@@ -898,7 +876,6 @@ public partial class ClaunityWindow
 
     private TabHistory BuildTabHistory(string tabId)
     {
-        // Get the history for the given tab (active tab uses _history directly)
         List<HistoryMessage> hist;
         if (_activeTab == tabId)
             hist = _history;
@@ -943,7 +920,6 @@ public partial class ClaunityWindow
 
         if (_activeTab == tabId)
         {
-            // Active tab — populate container and history directly
             _history.Clear();
             _hasMessages = false;
             _chatContainer.Clear();
@@ -963,7 +939,6 @@ public partial class ClaunityWindow
         }
         else
         {
-            // Inactive tab — build into a temporary container, save to tab state
             var prevContainer = _chatContainer.Children().ToList();
             var prevHistory   = new List<HistoryMessage>(_history);
             var prevHas       = _hasMessages;
@@ -989,7 +964,6 @@ public partial class ClaunityWindow
             _tabHistories[tabId]   = new List<HistoryMessage>(_history);
             _tabHasMessages[tabId] = _hasMessages;
 
-            // Restore active tab state
             _activeTab   = prevTab;
             _history.Clear();
             _history.AddRange(prevHistory);
@@ -1063,7 +1037,7 @@ public partial class ClaunityWindow
                 found.Add(name);
                 return $"@{name}";
             }
-            return m.Value; // mention not resolved
+            return m.Value;
         });
 
         if (extra.Length > 0)
@@ -1088,7 +1062,7 @@ public partial class ClaunityWindow
             var o = i < oldLines.Length ? oldLines[i].TrimEnd() : null;
             var n = i < newLines.Length ? newLines[i].TrimEnd() : null;
 
-            if (o == n) continue; // unchanged line
+            if (o == n) continue;
 
             if (o != null)
             {
@@ -1123,7 +1097,6 @@ public partial class ClaunityWindow
 
     private static string ParseMarkdown(string text)
     {
-        // Convert markdown tables to simple dashed lines (UI Toolkit can't render tables)
         text = Regex.Replace(text, @"^\|.+\|$", m =>
         {
             var line = m.Value.Trim('|').Trim();
@@ -1151,7 +1124,6 @@ public partial class ClaunityWindow
     {
         if (string.IsNullOrEmpty(text) || !text.Contains("\"actions\"")) return null;
 
-        // Claude sometimes writes explanation text before the JSON — find the JSON block
         var jsonStart = text.IndexOf("{\"message\"");
         if (jsonStart < 0) jsonStart = text.IndexOf("{ \"message\"");
         if (jsonStart < 0) jsonStart = text.TrimStart().StartsWith("{") ? 0 : -1;
@@ -1159,7 +1131,6 @@ public partial class ClaunityWindow
 
         var json = text.Substring(jsonStart);
 
-        // Extract the JSON object (find the matching closing brace)
         int depth = 0, end = -1;
         for (int i = 0; i < json.Length; i++)
         {
@@ -1173,7 +1144,6 @@ public partial class ClaunityWindow
             var resp = JsonUtility.FromJson<ClaunityActionResponse>(json);
             if (resp?.actions == null || resp.actions.Length == 0) return null;
 
-            // Warn about unknown action types
             foreach (var action in resp.actions)
                 if (!string.IsNullOrEmpty(action.type) && !ClaunityActionExecutor.IsKnownAction(action.type))
                     Debug.LogWarning($"[Claunity] Unknown action type: '{action.type}' — will be skipped");
@@ -1270,7 +1240,6 @@ public partial class ClaunityWindow
             item.AddToClassList("action-item");
             card.Add(item);
 
-            // Diff preview for edit_script
             if (action.type == "edit_script" && !string.IsNullOrEmpty(action.content))
             {
                 var oldContent = ClaunityActionExecutor.ReadScriptForDiff(action);
@@ -1369,7 +1338,6 @@ public partial class ClaunityWindow
             resultLines.AppendLine($"- {action.type}: {result}");
             if (!result.StartsWith("✓")) anyError = true;
 
-            // After recompile, save remaining actions and always flag autoResume
             if (action.type == "recompile_scripts")
             {
                 var remaining = i < actions.Length - 1 ? actions.Skip(i + 1).ToArray() : new ActionPayload[0];
@@ -1410,7 +1378,6 @@ public partial class ClaunityWindow
             .Distinct());
         var text = $"{icon} Actions: {names}";
 
-        // Store in history so it gets saved and rebuilt
         _history.Add(new HistoryMessage { role = "action", content = text });
         SaveChatHistory();
     }
@@ -1436,9 +1403,8 @@ public partial class ClaunityWindow
 
     private void OnPostReloadComplete()
     {
-        // Auto-continue the task that was interrupted by recompile
         var msg = "Recompilation complete. Please continue with the next step of the plan in the same language as the previous conversation.";
-        _requestTab = _activeTab; // prevent SwitchTab("") bug after reload
+        _requestTab = _activeTab;
         _history.Add(new HistoryMessage { role = "user", content = msg });
         _waitingForResponse = true;
         UpdateSendButton();
@@ -1467,7 +1433,6 @@ public partial class ClaunityWindow
 
         if (payload.claude != null && payload.claude.Length > 0) _dynamicModels["Claude (Anthropic)"] = payload.claude;
 
-        // Refresh model dropdown preserving current selection if still valid
         UpdateModelDropdown(modelDropdown, currentProvider, currentModel);
     }
 
@@ -1582,11 +1547,9 @@ public partial class ClaunityWindow
     // ── Build ActionPayload from tool_use response ─────────────────────────
     private static ActionPayload BuildActionFromTool(string toolName, string toolInputJson)
     {
-        // Inject "type" into the tool input JSON object so JsonUtility can parse it as ActionPayload
         if (string.IsNullOrEmpty(toolInputJson) || toolInputJson == "{}")
             toolInputJson = "{}";
 
-        // Insert type field at the start of the JSON object
         var withType = "{\"type\":\"" + toolName + "\"," + toolInputJson.Substring(1);
         try
         {
@@ -1606,7 +1569,6 @@ public partial class ClaunityWindow
     {
         if (!isContinuation && !CheckClientRateLimit()) yield break;
 
-        // Check backend is reachable before sending
         using (var healthReq = UnityWebRequest.Get($"{ServerUrl}/health"))
         {
             healthReq.timeout = 5;
@@ -1634,17 +1596,15 @@ public partial class ClaunityWindow
         if (!isContinuation)
         {
             _history.Add(new HistoryMessage { role = "user", content = message });
-            SaveChatHistory(); // persist user message immediately — survives domain reload
+            SaveChatHistory();
             _requestTab = _activeTab;
         }
 
-        // Build project_files: use explicit context if provided (test mode, retry), else project index
         var projectFiles = context ?? _projectContext ?? "";
         var errorContext = ClaunityConsole.FormatForContext();
         if (!string.IsNullOrEmpty(errorContext) && context == null)
             projectFiles += "\n\n" + errorContext;
 
-        // Build initial payload
         int maxHistory = System.Math.Max(1, EditorPrefs.GetInt(HistoryLimitPref, 4));
         var payload = new ChatRequest
         {
@@ -1691,7 +1651,6 @@ public partial class ClaunityWindow
         // ── Claude Code streaming path ──────────────────────────────────────
         if (response.type == "streaming")
         {
-            // Persist session so we can resume polling after a domain reload
             EditorPrefs.SetString("Claunity_StreamResume", response.session_id);
             EditorPrefs.SetString(StreamContextPref, "chat");
             yield return PollStreamingResponse(response.session_id);
@@ -1701,10 +1660,9 @@ public partial class ClaunityWindow
         }
 
         // ── Agentic loop: keep executing tools until we get a final answer ──
-        int safetyLimit = 40; // max tool calls per turn
+        int safetyLimit = 40;
         while (response.type == "tool_request" && safetyLimit-- > 0)
         {
-            // Show Claude's narration (text before tool call) as a chat message
             if (!string.IsNullOrEmpty(response.narration))
             {
                 StopThinking();
@@ -1712,31 +1670,26 @@ public partial class ClaunityWindow
                 StartThinking();
             }
 
-            // Update loading text with what Claude is doing
             if (_loadingText != null)
                 _loadingText.text = GetToolStatusText(response.tool_name);
             if (_requestTab == "test" && _testLoadingText != null)
                 _testLoadingText.text = GetToolStatusText(response.tool_name);
 
-            // Execute the tool in Unity
             var action     = BuildActionFromTool(response.tool_name, response.tool_input_json ?? "{}");
             var toolResult = ClaunityActionExecutor.Execute(action);
             AddActionChip(response.tool_name, response.tool_input_json);
 
-            // Handle screenshot result (base64 image)
             string toolResultStr;
             if (toolResult != null && toolResult.Length > 8 &&
                 toolResult.StartsWith("[IMAGE:") && toolResult.EndsWith("]"))
             {
                 toolResultStr = "[Screenshot captured successfully]";
-                // Note: we don't feed back the full base64 — Claude already knows it took a screenshot
             }
             else
             {
                 toolResultStr = toolResult ?? "✓ done";
             }
 
-            // Send result back to Python
             var continuePayload = new ChatContinueRequest
             {
                 session_id  = response.session_id,
@@ -1783,7 +1736,6 @@ public partial class ClaunityWindow
             }
             else if (string.IsNullOrEmpty(reply))
             {
-                // Empty response — don't add a blank bubble
             }
             else if (_chatAutoLooping && _requestTab == "chat")
             {
@@ -1798,7 +1750,6 @@ public partial class ClaunityWindow
                 AddMessage(reply, isUser: false);
             }
 
-            // Auto-continue if cut off
             if (response.stop_reason == "max_tokens" && _requestTab != "test")
             {
                 AddSystemNote("Response was cut off — continuing automatically...");
@@ -1845,7 +1796,6 @@ public partial class ClaunityWindow
             retryable = errorCode is "rate_limit" or "overloaded" or "provider_error"
                                   or "timeout"    or "connection";
 
-            // For auth errors, hint user to check Settings
             if (errorCode is "invalid_key" or "no_key" or "forbidden" or "quota")
                 errorMsg += "\n\nOpen the Settings tab to update your API key.";
         }
@@ -1862,19 +1812,17 @@ public partial class ClaunityWindow
         if (_activeTab != _requestTab)
             SwitchTab(_requestTab);
 
-        // Keep session resumable if another domain reload happens during polling
         EditorPrefs.SetString("Claunity_StreamResume", sessionId);
         EditorPrefs.SetString(StreamContextPref, _requestTab ?? "chat");
 
         int failCount = 0;
         double startTime = EditorApplication.timeSinceStartup;
-        const double maxPollSec = 1200.0; // 20-minute hard cap
+        const double maxPollSec = 1200.0;
 
         while (true)
         {
             yield return new EditorWaitForSeconds(0.5f);
 
-            // Hard timeout — kill backend subprocess and show retry button
             if (EditorApplication.timeSinceStartup - startTime > maxPollSec)
             {
                 StopThinking();
@@ -1894,7 +1842,7 @@ public partial class ClaunityWindow
             if (req.result != UnityWebRequest.Result.Success)
             {
                 failCount++;
-                if (failCount >= 20) // 20 × 0.5s = 10 seconds of backend unreachable → abort
+                if (failCount >= 20)
                 {
                     StopThinking();
                     _waitingForResponse = false;
@@ -1916,7 +1864,6 @@ public partial class ClaunityWindow
                     if (evt.type == "narration" && !string.IsNullOrEmpty(evt.text))
                     {
                         StopThinking();
-                        // Add to history so it survives domain reload
                         _history.Add(new HistoryMessage { role = "assistant", content = evt.text });
                         SaveChatHistory();
                         if (_requestTab == "test")
@@ -1996,7 +1943,7 @@ public partial class ClaunityWindow
         }
     }
 
-    /// Returns true if the reply is already the last assistant entry in history (prevents duplicates after domain reload).
+    /// <summary>Returns true if the reply is already the last assistant entry in history (prevents duplicates after domain reload).</summary>
     private bool IsAlreadyLastReply(string text)
     {
         if (string.IsNullOrEmpty(text)) return false;
@@ -2005,7 +1952,7 @@ public partial class ClaunityWindow
             if (_history[i].role == "assistant")
                 return _history[i].content == text;
             if (_history[i].role == "user")
-                break; // user message after any assistant = new turn, not a duplicate
+                break;
         }
         return false;
     }

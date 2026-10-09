@@ -14,9 +14,6 @@ namespace Claunity
 
 public partial class ClaunityWindow
 {
-    // ══════════════════════════════════════════════════════════════════════════
-    // SETTINGS, WELCOME & INSTALLER
-    // ══════════════════════════════════════════════════════════════════════════
 
     // ── Settings panel ─────────────────────────────────────────────────────────
 
@@ -97,7 +94,6 @@ public partial class ClaunityWindow
         var aiSourceDropdownCheck = rootVisualElement.Q<DropdownField>("ai-source-dropdown");
         bool isClaudeCode = aiSourceDropdownCheck?.value == "Claude Code";
 
-        // Warn if API key is empty and not using Claude Code
         if (string.IsNullOrEmpty(key) && !isClaudeCode)
         {
             bool proceed = EditorUtility.DisplayDialog(
@@ -122,7 +118,7 @@ public partial class ClaunityWindow
         EditorPrefs.SetString(PersonalPromptPref, personalPrompt);
 
         EditorCoroutineUtility.StartCoroutineOwnerless(PostConfig(key, model: model, useClaudeCode: useClaudeCode, personalPrompt: personalPrompt, historyLimit: historyLimit));
-        SnapshotSettings(); // mark as saved so ToggleSettings won't ask again
+        SnapshotSettings();
         CloseSettings();
     }
 
@@ -142,17 +138,14 @@ public partial class ClaunityWindow
 
         try
         {
-            // Clear chat history
             if (System.IO.File.Exists(HistoryFilePath))
                 System.IO.File.WriteAllText(HistoryFilePath, "{}");
 
-            // Clear project plan
             var planPath = System.IO.Path.GetFullPath(
                 System.IO.Path.Combine(Application.dataPath, "../", ProjectPlanPath));
             if (System.IO.File.Exists(planPath))
                 System.IO.File.WriteAllText(planPath, "{}");
 
-            // Reset in-memory state
             _history.Clear();
             _chatContainer?.Clear();
             _hasMessages = false;
@@ -253,7 +246,6 @@ public partial class ClaunityWindow
 
         if (!restart)
         {
-            // Return to welcome screen
             CloseSettings();
             EditorPrefs.SetBool(StartedPref, false);
             _mainUI.AddToClassList("main-ui--hidden");
@@ -268,13 +260,9 @@ public partial class ClaunityWindow
     }
 
     // ── Welcome screen / local backend ─────────────────────────────────────────
-    //
-    // The backend is a small Python (FastAPI) service that ships inside this package
-    // (Backend~/). "Set up" creates a private virtual environment and installs its
-    // dependencies; "Start" runs main.py from that environment on 127.0.0.1:8765.
 
     private const string PackageName    = "com.claunity.editor";
-    private const int    MinPythonVer   = 309;   // 3.9
+    private const int    MinPythonVer   = 309;
     private const string DepsMarkerFile = ".claunity-deps";
 
     private static volatile string _setupStatus = "";
@@ -331,7 +319,6 @@ public partial class ClaunityWindow
         _welcomeActionCallback = callback;
     }
 
-    // On fresh window open — auto-connect if the backend is already running
     private IEnumerator CheckInstallationOnStart()
     {
         SetWelcomeState(WelcomeState.Checking);
@@ -376,8 +363,6 @@ public partial class ClaunityWindow
         ? Path.Combine(GetVenvDir(), "Scripts", "python.exe")
         : Path.Combine(GetVenvDir(), "bin", "python");
 
-    // Folder with main.py. Works when installed as a package (git URL / disk / embedded)
-    // and when the folder was copied into Assets/.
     private string GetBackendDir()
     {
         var pkg = UnityEditor.PackageManager.PackageInfo.FindForAssetPath($"Packages/{PackageName}");
@@ -408,7 +393,6 @@ public partial class ClaunityWindow
             return BitConverter.ToString(sha.ComputeHash(File.ReadAllBytes(path))).Replace("-", "");
     }
 
-    // Set up = a venv exists whose installed dependencies match the shipped requirements.txt
     private bool IsInstalled()
     {
         var backend = GetBackendDir();
@@ -446,13 +430,12 @@ public partial class ClaunityWindow
                 stdout = outSb.ToString(); stderr = "Timed out.";
                 return -1;
             }
-            p.WaitForExit();   // flush async output
+            p.WaitForExit();
             stdout = outSb.ToString(); stderr = errSb.ToString();
             return p.ExitCode;
         }
     }
 
-    // First interpreter on PATH that is Python >= 3.9
     private static bool FindPython(bool win, out string file, out string prefixArgs)
     {
         var candidates = win
@@ -471,7 +454,7 @@ public partial class ClaunityWindow
                     return true;
                 }
             }
-            catch { /* not installed under this name */ }
+            catch { }
         }
         file = null; prefixArgs = null;
         return false;
@@ -497,7 +480,6 @@ public partial class ClaunityWindow
             yield break;
         }
 
-        // Resolve everything Unity-API-dependent here, on the main thread.
         bool   win       = IsWindowsEditor;
         string dataDir   = GetDataDir();
         string venvDir   = GetVenvDir();
@@ -526,7 +508,6 @@ public partial class ClaunityWindow
         SetWelcomeState(WelcomeState.NotRunning);
     }
 
-    // Runs on a background thread. Returns null on success, otherwise an error message.
     private static string RunSetup(string backendDir, string dataDir, string venvDir, string venvPy, bool win)
     {
         if (!FindPython(win, out var py, out var pyArgs))
@@ -569,7 +550,6 @@ public partial class ClaunityWindow
             yield break;
         }
 
-        // Fine if it is already running — the port is then taken and /health still answers.
         string startError = null;
         try
         {
@@ -590,7 +570,6 @@ public partial class ClaunityWindow
             yield break;
         }
 
-        // Poll /health for up to 30 seconds
         float elapsed = 0f;
         while (elapsed < 30f)
         {

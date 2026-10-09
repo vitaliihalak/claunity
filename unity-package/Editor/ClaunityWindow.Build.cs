@@ -18,9 +18,6 @@ namespace Claunity
 
 public partial class ClaunityWindow
 {
-    // ══════════════════════════════════════════════════════════════════════════
-    // BUILD
-    // ══════════════════════════════════════════════════════════════════════════
 
     // ── BUILD VIEW ─────────────────────────────────────────────────────────────
 
@@ -81,7 +78,6 @@ public partial class ClaunityWindow
         if (!EditorPrefs.GetBool(SbActivePref, false)) return;
 
         SwitchTab("build");
-        // Small delay so UI is ready
         EditorApplication.delayCall += () =>
             EditorCoroutineUtility.StartCoroutineOwnerless(SmartBuildLoop(
                 EditorPrefs.GetInt(SbIterPref, 1),
@@ -112,7 +108,6 @@ public partial class ClaunityWindow
         if (isDev)   opts |= BuildOptions.Development;
         if (isDebug) opts |= BuildOptions.AllowDebugging;
 
-        // Save state for domain-reload recovery
         EditorPrefs.SetBool  (SbActivePref, true);
         EditorPrefs.SetInt   (SbIterPref,   1);
         EditorPrefs.SetString(SbOutputPref, outputPath);
@@ -120,7 +115,6 @@ public partial class ClaunityWindow
         EditorPrefs.SetString(SbScenesPref, allScenes ? "all" : "current");
         EditorPrefs.SetInt   (SbOptsPref,   (int)opts);
 
-        // Clear previous log
         _buildLog?.Clear();
         if (_buildResult != null) _buildResult.RemoveFromClassList("build-result--hidden");
         if (_buildResultSummary != null) _buildResultSummary.text = "";
@@ -135,7 +129,6 @@ public partial class ClaunityWindow
         if (_buildBtn != null) _buildBtn.SetEnabled(false);
         if (_buildResult != null) _buildResult.RemoveFromClassList("build-result--hidden");
 
-        // On resume after domain reload — show the log was restored
         if (startIter > 1)
             AppendBuildLog($"🔄 Resumed after recompilation", "info");
 
@@ -215,20 +208,15 @@ public partial class ClaunityWindow
             if (_buildResultSummary != null)
                 _buildResultSummary.text = "⏳ Recompiling... (will resume automatically)";
 
-            // Domain reload will kill this coroutine.
-            // State is already saved — CreateGUI will resume from next iter.
             EditorPrefs.SetInt(SbIterPref, iter + 1);
 
-            // Trigger recompile (write_script already calls Refresh; this is a safety net)
             AssetDatabase.Refresh();
             yield return new WaitForEndOfFrame();
-            // Coroutine dies here on domain reload — CreateGUI resumes
         }
     }
 
     private IEnumerator PostSmartBuildFix(string errors, Action<bool> onDone)
     {
-        // Read files that contain errors so Claude has the full context
         var filePaths = ExtractScriptPaths(errors);
         var sb = new StringBuilder();
         foreach (var path in filePaths)
@@ -239,7 +227,6 @@ public partial class ClaunityWindow
                 sb.AppendLine(result);
         }
 
-        // Also include console compile errors
         var compileErrors = ClaunityConsole.GetAndClearCompileErrors();
         if (compileErrors.Length > 0)
             errors += "\n\n=== COMPILE ERRORS ===\n" + string.Join("\n", compileErrors);
@@ -284,7 +271,6 @@ public partial class ClaunityWindow
 
         int applied = 0;
 
-        // Agentic loop — execute tools until final response
         int safetyLimit = 20;
         while (response.type == "tool_request" && safetyLimit-- > 0)
         {
@@ -355,7 +341,6 @@ public partial class ClaunityWindow
     {
         var sb = new StringBuilder();
 
-        // Steps with errors
         foreach (var step in report.steps)
         {
             foreach (var msg in step.messages)
@@ -365,7 +350,6 @@ public partial class ClaunityWindow
             }
         }
 
-        // Console errors
         var consoleErrors = ClaunityConsole.FormatForContext();
         if (!string.IsNullOrEmpty(consoleErrors))
             sb.AppendLine(consoleErrors);
@@ -377,7 +361,6 @@ public partial class ClaunityWindow
     {
         var paths = new List<string>();
         var seen  = new HashSet<string>();
-        // Match patterns like: Assets/Scripts/Foo.cs or Assets\Scripts\Foo.cs
         var matches = Regex.Matches(errors, @"Assets[/\\][^\s:(),]+\.cs");
         foreach (Match m in matches)
         {
@@ -397,7 +380,6 @@ public partial class ClaunityWindow
         if (style == "err")    lbl.AddToClassList("build-log-entry--err");
         if (style == "claude") lbl.AddToClassList("build-log-entry--claude");
         _buildLog.Add(lbl);
-        // Scroll to bottom
         EditorApplication.delayCall += () => _buildLogScroll?.ScrollTo(lbl);
     }
 

@@ -9,11 +9,7 @@ using UnityEngine;
 namespace Claunity
 {
 
-/// <summary>
-/// ClaunityBridge — lightweight HTTP server on port 8766.
-/// Receives tool calls from the Python MCP server and executes them
-/// on the Unity main thread via ClaunityActionExecutor.
-/// </summary>
+/// <summary>ClaunityBridge — lightweight HTTP server on port 8766.</summary>
 [InitializeOnLoad]
 public static class ClaunityBridge
 {
@@ -23,7 +19,6 @@ public static class ClaunityBridge
     private static Thread                _thread;
     private static volatile bool         _running;
 
-    // Pending request from background thread → main thread
     private static volatile bool         _hasPending;
     private static string                _pendingTool;
     private static string                _pendingInput;
@@ -78,7 +73,6 @@ public static class ClaunityBridge
 
             if (ctx == null) continue;
 
-            // Only POST /execute is supported
             if (ctx.Request.HttpMethod != "POST" || ctx.Request.Url.AbsolutePath != "/execute")
             {
                 Respond(ctx, 404, "{\"error\":\"not found\"}");
@@ -89,7 +83,6 @@ public static class ClaunityBridge
             using (var sr = new StreamReader(ctx.Request.InputStream, Encoding.UTF8))
                 body = sr.ReadToEnd();
 
-            // Parse {"tool":"...", "input":{...}}
             string tool  = ExtractString(body, "tool");
             string input = ExtractObject(body, "input");
 
@@ -99,7 +92,6 @@ public static class ClaunityBridge
                 continue;
             }
 
-            // Hand off to main thread and wait for result
             lock (_lock)
             {
                 _pendingTool  = tool;
@@ -108,7 +100,6 @@ public static class ClaunityBridge
                 _resultSignal.Reset();
             }
 
-            // Wait until main thread has processed it (timeout 30s)
             _resultSignal.Wait(TimeSpan.FromSeconds(30));
 
             string result;
@@ -136,7 +127,6 @@ public static class ClaunityBridge
         string result;
         try
         {
-            // Build ActionPayload: inject "type" field into input JSON
             string withType = input.Length > 2
                 ? "{\"type\":\"" + tool + "\"," + input.Substring(1)
                 : "{\"type\":\"" + tool + "\"}";

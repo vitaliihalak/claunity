@@ -8,10 +8,7 @@ using UnityEngine;
 namespace Claunity
 {
 
-/// <summary>
-/// Captures Unity Console messages across domain reloads.
-/// Subscribed via [InitializeOnLoad] so it re-subscribes after every reload.
-/// </summary>
+/// <summary>Captures Unity Console messages across domain reloads.</summary>
 [InitializeOnLoad]
 public static class ClaunityConsole
 {
@@ -20,11 +17,11 @@ public static class ClaunityConsole
     [Serializable]
     public class Entry
     {
-        public string logType;    // "error" | "warning"
+        public string logType;
         public string message;
-        public string stackTrace; // first line only
+        public string stackTrace;
         public string time;
-        public int    count = 1;  // how many times this exact message appeared
+        public int    count = 1;
     }
 
     private static readonly List<Entry> _entries = new List<Entry>();
@@ -38,7 +35,7 @@ public static class ClaunityConsole
 
     static ClaunityConsole()
     {
-        Application.logMessageReceived -= OnLog; // guard against double-subscribe
+        Application.logMessageReceived -= OnLog;
         Application.logMessageReceived += OnLog;
         CompilationPipeline.assemblyCompilationFinished -= OnAssemblyCompiled;
         CompilationPipeline.assemblyCompilationFinished += OnAssemblyCompiled;
@@ -58,7 +55,6 @@ public static class ClaunityConsole
             _compileErrors.AddRange(errors);
         }
 
-        // Notify Project Mode if it was waiting for recompile OR actively executing a task
         bool resuming  = EditorPrefs.GetBool("Claunity_ProjectResuming", false);
         bool executing = EditorPrefs.GetBool("Claunity_ProjectExecuting", false);
         if (resuming || executing)
@@ -81,7 +77,7 @@ public static class ClaunityConsole
     private static void OnLog(string message, string stackTrace, LogType type)
     {
         if (type == LogType.Log || type == LogType.Assert) return;
-        if (message.StartsWith("[Claunity]")) return; // ignore own logs
+        if (message.StartsWith("[Claunity]")) return;
 
         var entry = new Entry
         {
@@ -93,13 +89,12 @@ public static class ClaunityConsole
 
         lock (_entries)
         {
-            // Deduplicate: if the same message+type already exists, just bump its count
             var existing = _entries.LastOrDefault(
                 e => e.logType == entry.logType && e.message == entry.message);
             if (existing != null)
             {
                 existing.count++;
-                existing.time = entry.time; // keep the latest timestamp
+                existing.time = entry.time;
             }
             else
             {
@@ -108,7 +103,6 @@ public static class ClaunityConsole
             }
         }
 
-        // Dispatch to main thread safely
         EditorApplication.delayCall += () => OnChanged?.Invoke();
     }
 

@@ -5,11 +5,7 @@ using UnityEditor;
 namespace Claunity
 {
 
-/// <summary>
-/// Domain-reload-safe test runner for Play &amp; Test Mode.
-/// Survives Play Mode entry by using [InitializeOnLoad] + playModeStateChanged.
-/// Screenshot is persisted to a temp file across the domain reload.
-/// </summary>
+/// <summary>Domain-reload-safe test runner for Play &amp; Test Mode.</summary>
 [InitializeOnLoad]
 public static class ClaunityTestRunner
 {
@@ -39,10 +35,7 @@ public static class ClaunityTestRunner
 
     public static bool IsPending => EditorPrefs.GetBool(PendingKey, false);
 
-    /// <summary>
-    /// Clears stale pending state left from a previous Unity session (e.g., Unity was closed mid-test).
-    /// Safe to call on startup: does nothing when actually in play mode.
-    /// </summary>
+    /// <summary>Clears stale pending state left from a previous Unity session (e.g., Unity was closed mid-test).</summary>
     public static void ClearStalePendingIfNeeded()
     {
         if (!EditorApplication.isPlaying && EditorPrefs.GetBool(PendingKey, false))
@@ -58,7 +51,7 @@ public static class ClaunityTestRunner
 
     public static void StartTest()
     {
-        if (EditorPrefs.GetBool(PendingKey, false)) return; // already running
+        if (EditorPrefs.GetBool(PendingKey, false)) return;
         EditorPrefs.SetBool(PendingKey, true);
         EditorPrefs.SetFloat(WaitStartKey, -1f);
         OnTestStatus?.Invoke("🎮 Entering Play Mode...");
@@ -86,14 +79,12 @@ public static class ClaunityTestRunner
 
     private static void OnUpdate()
     {
-        // Flush any result stored in EditorPrefs once the window subscribes
         if (EditorPrefs.GetBool(ResultReadyKey, false) && OnTestComplete != null)
         {
             FlushPendingResult();
             return;
         }
 
-        // Timeout: if play mode hasn't exited within 15 s, force-complete
         if (_exitRequestedAt > 0 &&
             EditorApplication.timeSinceStartup - _exitRequestedAt > 15.0 &&
             !EditorApplication.isPlaying)
@@ -150,14 +141,12 @@ public static class ClaunityTestRunner
 
         if (OnTestComplete != null)
         {
-            // Subscribers are ready — fire immediately
             OnTestStatus?.Invoke("🔍 Analyzing...");
             try { OnTestComplete?.Invoke(base64, consoleData); }
-            catch { /* window handler threw — don't leave in loading state */ }
+            catch { }
         }
         else
         {
-            // Window not yet recreated after domain reload — persist result and retry via OnUpdate
             EditorPrefs.SetString(ConsoleDataKey, consoleData ?? "");
             EditorPrefs.SetBool(ResultReadyKey, true);
             if (base64 != null)
@@ -167,10 +156,7 @@ public static class ClaunityTestRunner
         }
     }
 
-    /// <summary>
-    /// Called by ClaunityWindow after it subscribes to OnTestComplete, to flush any
-    /// pending result that was collected before the window finished initialising.
-    /// </summary>
+    /// <summary>Called by ClaunityWindow after it subscribes to OnTestComplete, to flush any pending result that was collected before the window finished initialising.</summary>
     public static void FlushPendingResult()
     {
         if (!EditorPrefs.GetBool(ResultReadyKey, false)) return;

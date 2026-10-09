@@ -15,9 +15,6 @@ namespace Claunity
 
 public partial class ClaunityWindow
 {
-    // ══════════════════════════════════════════════════════════════════════════
-    // SCOUT & TEST
-    // ══════════════════════════════════════════════════════════════════════════
 
     // ── Play & Test Mode ───────────────────────────────────────────────────────
 
@@ -33,7 +30,6 @@ public partial class ClaunityWindow
     {
         if (_testLoadingText != null) _testLoadingText.text = status;
         if (_testContent == null) return;
-        // Update existing analyzing label if present
         var lbl = _testContent.Q<UnityEngine.UIElements.Label>();
         if (lbl != null) lbl.text = status;
     }
@@ -42,7 +38,6 @@ public partial class ClaunityWindow
     {
         if (_activeTab != "test") SwitchTab("test");
 
-        // Show "analyzing" placeholder in dashboard
         if (_testContent != null)
         {
             _testContent.Clear();
@@ -51,7 +46,6 @@ public partial class ClaunityWindow
             _testContent.Add(lbl);
         }
 
-        // Fresh history for this test run
         _history.Clear();
 
         var message = "Analyze the game test results: review the screenshot and console output, provide a full bug report.";
@@ -61,7 +55,6 @@ public partial class ClaunityWindow
         _waitingForResponse = true;
         UpdateSendButton();
 
-        // Test mode: script list (names only, no content) + console data
         var context = _projectContext ?? "";
         if (!string.IsNullOrEmpty(consoleData))
             context += "\n\n" + consoleData;
@@ -79,7 +72,6 @@ public partial class ClaunityWindow
         HideTestLoading();
         _testContent.Clear();
 
-        // Hide empty splash, show scroll
         _testEmptySplash?.AddToClassList("test-empty-splash--hidden");
         _testScroll?.RemoveFromClassList("test-scroll--hidden");
 
@@ -244,7 +236,6 @@ public partial class ClaunityWindow
     {
         _scoutLoading?.RemoveFromClassList("scout-loading--hidden");
 
-        // Bar animation
         _scoutLoadingStep = 0;
         _scoutLoadingAnimation?.Pause();
         _scoutLoadingAnimation = _scoutLoadingFill?.schedule
@@ -256,7 +247,6 @@ public partial class ClaunityWindow
             })
             .Every(50);
 
-        // Status text animation
         _scoutStatusStep = 0;
         if (_scoutLoadingText != null)
             _scoutLoadingText.text = ScoutStatusMessages[0];
@@ -333,7 +323,6 @@ public partial class ClaunityWindow
             yield break;
         }
 
-        // Group by category
         var byCategory = new System.Collections.Generic.Dictionary<string, System.Collections.Generic.List<ScoutAsset>>();
         foreach (var a in resp.assets)
         {

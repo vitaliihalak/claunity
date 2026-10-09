@@ -34,9 +34,7 @@ public partial class ClaunityWindow : EditorWindow
     private static readonly string[] ChatModelLabels = { "Sonnet", "Haiku", "Opus" };
     private string _chatModelOverride = "claude-sonnet-4-6";
 
-    // Phase 13 — Installer
 
-    // Claunity 2.0 — Claude only
     private static readonly string[] Providers = { "Claude (Anthropic)" };
 
     private static readonly Dictionary<string, string[]> ProviderModels =
@@ -82,7 +80,6 @@ public partial class ClaunityWindow : EditorWindow
     private int            _testLoadingStep;
     private int            _testRunCount;
 
-    // Scout view
     private VisualElement  _scoutView;
     private TextField      _scoutInputField;
     private Toggle         _scoutFreeOnly;
@@ -104,7 +101,6 @@ public partial class ClaunityWindow : EditorWindow
         "Picking the best matches...",
     };
 
-    // Project view
     private VisualElement  _projectView;
     private VisualElement  _projectChatPhase;
     private VisualElement  _projectIdleSplash;
@@ -142,7 +138,6 @@ public partial class ClaunityWindow : EditorWindow
     private VisualElement  _settingsPanel;
     private VisualElement  _tabs;
 
-    // Snapshot to detect unsaved settings changes
     private string _snapshotKey;
     private string _snapshotModel;
     private bool   _snapshotUseClaudeCode;
@@ -160,7 +155,6 @@ public partial class ClaunityWindow : EditorWindow
     private Label          _connectionStatus;
     private Label          _errorBadge;
 
-    // Phase 13 — Welcome Screen state machine
     private enum WelcomeState { Checking, NotInstalled, Installing, NotRunning, Starting, Error }
     private Label         _welcomeStatus;
     private Button        _welcomeActionBtn;
@@ -176,16 +170,14 @@ public partial class ClaunityWindow : EditorWindow
     private List<string>   _mentionItems = new List<string>();
     private int            _mentionIndex = -1;
 
-    // Picker overlay
     private VisualElement  _pickerOverlay;
     private VisualElement  _pickerList;
     private TextField      _pickerSearch;
     private Action<string> _pickerCallback;
     private List<(string name, string path)> _pickerAllItems = new List<(string, string)>();
 
-    // Chat history persistence
     private const int MaxSavedMessages = 100;
-    private bool _rebuilding; // prevents saving during rebuild
+    private bool _rebuilding;
     private static string HistoryFilePath =>
         System.IO.Path.GetFullPath(
             System.IO.Path.Combine(Application.dataPath, "Claunity/UserSettings/ClaunityHistory.json"));
@@ -204,7 +196,7 @@ public partial class ClaunityWindow : EditorWindow
     private VisualElement                _loadingFill;
     private Label                        _loadingText;
 
-    private string _lastSentMessage = "";   // for "Again" retry on timeout
+    private string _lastSentMessage = "";
 
     // ── Chat auto-loop state ───────────────────────────────────────────────────
 
@@ -215,8 +207,8 @@ public partial class ClaunityWindow : EditorWindow
 
     private ProjectPlanFile              _plan;
     private readonly List<HistoryMessage> _projectHistory = new List<HistoryMessage>();
-    private int                          _taskHistoryStart;   // index where current task's history begins
-    private int                          _planningHistoryEnd; // index where planning ended (only these shown in chat)
+    private int                          _taskHistoryStart;
+    private int                          _planningHistoryEnd;
     private bool                         _projectExecuting;
     private bool                         _projectVerifying;
     private bool                         _projectPauseRequested;
@@ -230,16 +222,15 @@ public partial class ClaunityWindow : EditorWindow
     private const string ProjectExecutingPref      = "Claunity_ProjectExecuting";
     private const string ProjectExecutingTaskPref  = "Claunity_ProjectExecutingTask";
     private const string ProjectPlanningEndPref    = "Claunity_PlanningHistoryEnd";
-    private const string StreamContextPref         = "Claunity_StreamContext";   // "chat" | "project_chat" | "project_execution"
-    private const string StreamTaskIdPref          = "Claunity_StreamTaskId";    // task id for project_execution
-    private const string ActiveTabPref             = "Claunity_ActiveTab";       // last active tab, restored after domain reload
+    private const string StreamContextPref         = "Claunity_StreamContext";
+    private const string StreamTaskIdPref          = "Claunity_StreamTaskId";
+    private const string ActiveTabPref             = "Claunity_ActiveTab";
 
     // ── Project intelligence ───────────────────────────────────────────────────
 
     private string                       _projectContext = "";
     private int                          _indexedCount;
 
-    // Adaptive context: model prefix → max context chars for project intelligence
     private static readonly Dictionary<string, int> ModelContextLimits =
         new Dictionary<string, int>
     {
@@ -256,29 +247,24 @@ public partial class ClaunityWindow : EditorWindow
             if (model.StartsWith(kv.Key)) return kv.Value;
         return DefaultMaxContextChars;
     }
-    // Snapshot of file write times taken at session start — to detect changes
     private Dictionary<string, System.DateTime> _sessionSnapshot = new Dictionary<string, System.DateTime>();
 
-    // Token usage tracking
     private int _sessionInputTokens;
     private int _sessionOutputTokens;
     private Label _sessionTokenCounter;
 
-    // Client-side rate limiter — auto-pause if too many requests per minute
-    private const int  ClientRateLimit  = 10;   // max requests per 60s before pause dialog
-    private const int  ClientRateWindow = 60;   // seconds
+    private const int  ClientRateLimit  = 10;
+    private const int  ClientRateWindow = 60;
     private readonly System.Collections.Generic.List<double> _chatTimestamps = new();
     private bool _ratePausedByUser = false;
 
-    // Per-tab chat state
     private readonly List<HistoryMessage>                   _history     = new List<HistoryMessage>();
     private readonly Dictionary<string, List<VisualElement>> _tabMessages  = new Dictionary<string, List<VisualElement>>();
     private readonly Dictionary<string, List<HistoryMessage>> _tabHistories = new Dictionary<string, List<HistoryMessage>>();
     private readonly Dictionary<string, bool>               _tabHasMessages = new Dictionary<string, bool>();
 
-    private static readonly string[] ChatTabs = { "chat", "test" }; // project has its own UI/state
+    private static readonly string[] ChatTabs = { "chat", "test" };
 
-    // Model list served by the local backend (Backend~/models.json)
     private Dictionary<string, string[]> _dynamicModels;
 
     private static readonly string[] DotFrames = { "·  ", "· · ", "· · ·" };
@@ -294,7 +280,6 @@ public partial class ClaunityWindow : EditorWindow
 
     public void CreateGUI()
     {
-        // Always clear before cloning UXML — prevents duplicate elements on domain reload
         rootVisualElement.Clear();
 
         var uxml = LoadAsset<VisualTreeAsset>("ClaunityWindow.uxml");
@@ -320,10 +305,8 @@ public partial class ClaunityWindow : EditorWindow
         ClaunityConsole.OnProjectCompileFailed += HandleProjectCompileFailed;
         ClaunityTestRunner.OnTestStatus        += HandleTestStatus;
         ClaunityTestRunner.OnTestComplete      += HandleTestComplete;
-        // Flush any test result collected before this window finished initialising
         EditorApplication.delayCall            += ClaunityTestRunner.FlushPendingResult;
 
-        // A new Unity session always starts on the welcome page; domain reloads keep the open UI.
         if (!SessionState.GetBool(SessionInitKey, false))
         {
             SessionState.SetBool(SessionInitKey, true);
@@ -355,16 +338,12 @@ public partial class ClaunityWindow : EditorWindow
         EditorCoroutineUtility.StartCoroutineOwnerless(FetchModels());
         EditorCoroutineUtility.StartCoroutineOwnerless(ShowBackendVersion());
 
-        // Clear stale test state if Unity was closed mid-test (PendingKey left in EditorPrefs)
         ClaunityTestRunner.ClearStalePendingIfNeeded();
-        // Restore test loading bar if a test run genuinely survived a domain reload (in play mode)
         if (ClaunityTestRunner.IsPending)
             ShowTestLoading("Running test...");
 
-        // Resume smart build if interrupted by domain reload
         CheckSmartBuildResume();
 
-        // Execute any actions that were queued before the domain reload
         var pending = ClaunityActionExecutor.ConsumePendingActions();
         if (pending != null)
         {
@@ -374,7 +353,6 @@ public partial class ClaunityWindow : EditorWindow
                 EditorApplication.delayCall += OnPostReloadComplete;
         }
 
-        // Resume project execution after recompile
         if (EditorPrefs.GetBool(ProjectResumingPref, false))
         {
             EditorPrefs.SetBool(ProjectResumingPref, false);
@@ -383,9 +361,6 @@ public partial class ClaunityWindow : EditorWindow
                 EditorApplication.delayCall += () => ResumeProjectAfterReload(resumeTaskId);
         }
 
-        // Clear stale ProjectExecuting flag if no project is actually running.
-        // Without this, a leftover EditorPref from a previous session would cause
-        // any compile error to trigger Project Mode autofix even in Chat mode.
         if (EditorPrefs.GetBool(ProjectExecutingPref, false))
         {
             LoadProjectPlan();
@@ -396,14 +371,11 @@ public partial class ClaunityWindow : EditorWindow
             }
         }
 
-        // Resume streaming poll interrupted by domain reload (Claude Code wrote a script)
         var streamResume = EditorPrefs.GetString("Claunity_StreamResume", "");
         if (!string.IsNullOrEmpty(streamResume))
         {
             var streamContext = EditorPrefs.GetString(StreamContextPref, "chat");
             var streamTaskId  = EditorPrefs.GetInt(StreamTaskIdPref, -1);
-            // Keys are deleted by the polling coroutine when it finishes, not here.
-            // This way a second domain reload during polling can still resume.
             EditorPrefs.DeleteKey(StreamTaskIdPref);
 
             if (streamContext == "project_execution" && streamTaskId >= 0)
@@ -444,13 +416,10 @@ public partial class ClaunityWindow : EditorWindow
         var logo = LoadAsset<Texture2D>("ClaunityLogo.png");
         if (logo == null) return;
 
-        // Welcome screen image
         rootVisualElement.Q<Image>("logo-image").image = logo;
 
-        // Header image
         rootVisualElement.Q<Image>("header-logo-img").image = logo;
 
-        // Window tab icon
         titleContent = new GUIContent("Claunity", logo);
     }
 
@@ -515,7 +484,6 @@ public partial class ClaunityWindow : EditorWindow
         _welcomeScreen       = rootVisualElement.Q("welcome-screen");
         _mainUI              = rootVisualElement.Q("main-ui");
 
-        // Phase 13 — Welcome Screen state elements
         _welcomeStatus       = rootVisualElement.Q<Label>("welcome-status");
         _welcomeActionBtn    = rootVisualElement.Q<Button>("welcome-action-btn");
         _welcomeProgress     = rootVisualElement.Q("welcome-progress");
@@ -611,32 +579,25 @@ public partial class ClaunityWindow : EditorWindow
 
     private void WireEvents()
     {
-        // Welcome (Phase 13 — dynamic action button)
         if (_welcomeActionBtn != null) _welcomeActionBtn.clicked += () => _welcomeActionCallback?.Invoke();
 
-        // Header
         rootVisualElement.Q("logo-btn").RegisterCallback<ClickEvent>(_ => OnLogoClicked());
         rootVisualElement.Q<Button>("settings-btn").clicked += ToggleSettings;
 
-        // Tabs
         foreach (var id in new[] { "chat", "project", "test", "scout", "build" })
         {
             var captured = id;
             rootVisualElement.Q<Button>($"tab-{id}").clicked += () => SwitchTab(captured);
         }
 
-        // Scout
         if (_scoutSearchBtn != null) _scoutSearchBtn.clicked += OnScoutSearch;
 
-        // Build tab
         InitBuildView();
 
-        // Input
         _inputField.RegisterCallback<KeyDownEvent>(OnInputKeyDown, TrickleDown.TrickleDown);
         _inputField.RegisterValueChangedCallback(e => { UpdateSendButton(); UpdateInputHeight(); CheckMentionDropdown(e.newValue); });
         _sendBtn.clicked += OnSendClicked;
 
-        // Model selector
         var modelSelectorBtn = rootVisualElement.Q<Button>("model-selector-btn");
         if (modelSelectorBtn != null)
         {
@@ -652,7 +613,6 @@ public partial class ClaunityWindow : EditorWindow
             };
         }
 
-        // Click on thinking indicator = cancel/unlock (escape hatch for stuck state)
         _thinkingIndicator?.RegisterCallback<ClickEvent>(_ =>
         {
             if (!_waitingForResponse) return;
@@ -664,11 +624,9 @@ public partial class ClaunityWindow : EditorWindow
         _testRunCount = EditorPrefs.GetInt("Claunity_TestRunCount", 0);
         UpdateSendButton();
 
-        // Chat toolbar
         rootVisualElement.Q<Button>("clear-btn").clicked += OnClearChat;
         if (_continueBtn != null) _continueBtn.clicked += OnContinueClicked;
 
-        // Feature buttons — special interactive ones
         var featScene = rootVisualElement.Q<Button>("feat-scene");
         if (featScene != null) featScene.clicked += () => OnFeatScreenshot("scene");
         var featGame = rootVisualElement.Q<Button>("feat-game");
@@ -686,7 +644,6 @@ public partial class ClaunityWindow : EditorWindow
             ShowGameObjectPicker("Select object to create prefab from", name =>
                 SendFeatureMessage($"Create a prefab from the '{name}' GameObject and save it to Assets/Prefabs"));
 
-        // Feature buttons — simple static messages
         var featBugs = rootVisualElement.Q<Button>("feat-bugs");
         if (featBugs != null) featBugs.clicked += () =>
             SendFeatureMessage(ClaunityConsole.FormatForFixRequest());
@@ -700,11 +657,9 @@ public partial class ClaunityWindow : EditorWindow
         if (featMap != null) featMap.clicked += () =>
             SendFeatureMessage("Create a map of scripts and their relationships in the project");
 
-        // Picker overlay
         rootVisualElement.Q<Button>("picker-cancel-btn").clicked += HidePicker;
         _pickerSearch.RegisterValueChangedCallback(e => FilterPicker(e.newValue));
 
-        // Project view
         if (_projectUploadBtn  != null) _projectUploadBtn.clicked  += OnProjectUploadClicked;
         if (_projectSendBtn    != null) _projectSendBtn.clicked    += OnProjectSendClicked;
         if (_projectInputField != null)
@@ -724,7 +679,6 @@ public partial class ClaunityWindow : EditorWindow
         if (_projectPauseBtn     != null) _projectPauseBtn.clicked     += OnProjectPauseClicked;
         if (_projectContinueBtn  != null) _projectContinueBtn.clicked  += OnProjectContinueClicked;
 
-        // Settings
         rootVisualElement.Q<Button>("toggle-key-btn").clicked      += ToggleKeyVisibility;
         rootVisualElement.Q<Button>("save-btn").clicked            += OnSaveSettings;
         rootVisualElement.Q<Button>("test-connection-btn").clicked += OnTestConnection;
@@ -741,7 +695,6 @@ public partial class ClaunityWindow : EditorWindow
 
     private void InitSettings()
     {
-        // Seed dynamic models from fallback
         _dynamicModels = new Dictionary<string, string[]>(ProviderModels);
 
         _apiKeyField.value           = EditorPrefs.GetString(ApiKeyPref, "");
@@ -749,7 +702,6 @@ public partial class ClaunityWindow : EditorWindow
 
         var modelDropdown = rootVisualElement.Q<DropdownField>("model-dropdown");
 
-        // Claunity 2.0 — Claude only
         var savedModel = EditorPrefs.GetString(ModelPref, "");
         UpdateModelDropdown(modelDropdown, Providers[0], savedModel);
 
@@ -819,11 +771,9 @@ public partial class ClaunityWindow : EditorWindow
         _welcomeScreen.style.display = DisplayStyle.Flex;
         _hasMessages = false;
 
-        // Show correct welcome state (don't auto-enter, user explicitly went back)
         SetWelcomeState(IsInstalled() ? WelcomeState.NotRunning : WelcomeState.NotInstalled);
     }
 
-    // Called once main UI is fully ready to open
     private void EnterMainUI()
     {
         EditorPrefs.SetBool(StartedPref, true);
@@ -841,7 +791,6 @@ public partial class ClaunityWindow : EditorWindow
         LoadChatHistory();
         IndexProject();
 
-        // Restore saved settings to the freshly-started backend
         var savedKey           = EditorPrefs.GetString(ApiKeyPref, "");
         var savedModel         = EditorPrefs.GetString(ModelPref,  "");
         var savedClaudeCode    = EditorPrefs.GetBool(UseClaudeCodePref, false);
@@ -858,7 +807,6 @@ public partial class ClaunityWindow : EditorWindow
 
     private void SwitchTab(string tabId)
     {
-        // Save current tab state before switching
         SaveCurrentTabState();
 
         foreach (var id in new[] { "chat", "project", "test", "scout", "build" })
@@ -917,11 +865,9 @@ public partial class ClaunityWindow : EditorWindow
 
         if (_hasMessages)
         {
-            // Ensure scroll is visible (chat-scroll starts hidden in UXML, shown via HideSplash)
             _chatScroll?.RemoveFromClassList("chat-scroll--hidden");
             rootVisualElement.Q("mode-splash")?.AddToClassList("mode-splash--hidden");
 
-            // Force UIToolkit to re-layout and scroll — needed after Clear()+re-add in EditorWindows
             _chatContainer.MarkDirtyRepaint();
             _chatScroll.schedule.Execute(() =>
             {
@@ -967,12 +913,12 @@ public partial class ClaunityWindow : EditorWindow
     private class ChatRequest
     {
         public string           message;
-        public string           project_files;  // script list for context classifier
-        public string           project_path;   // absolute path to Unity project root
+        public string           project_files;
+        public string           project_path;
         public string           mode;
-        public string           image;          // base64 PNG, empty if none
+        public string           image;
         public HistoryMessage[] history;
-        public string           model_override; // overrides config model for this session
+        public string           model_override;
     }
 
     [System.Serializable]
@@ -987,21 +933,17 @@ public partial class ClaunityWindow : EditorWindow
     [System.Serializable] private class ChatModelOverride      { public string model_override; }
     [System.Serializable] private class ClaudeCodeCheckResponse { public bool found; public string version; }
 
-    // Unified response — type is "tool_request" or "final"
     [System.Serializable]
     private class ChatResponse
     {
-        public string type;           // "tool_request" | "final" | "streaming"
-        // tool_request fields
+        public string type;
         public string session_id;
         public string tool_name;
         public string tool_input_json;
         public string tool_use_id;
-        public string narration;      // Claude's text before tool call
-        // final fields
+        public string narration;
         public string reply;
         public string stop_reason;
-        // always present
         public int    input_tokens;
         public int    output_tokens;
     }
@@ -1009,7 +951,7 @@ public partial class ClaunityWindow : EditorWindow
     [System.Serializable]
     private class StreamEvent
     {
-        public string type;  // "narration" | "tool" | "final" | "error"
+        public string type;
         public string text;
     }
 
@@ -1018,7 +960,7 @@ public partial class ClaunityWindow : EditorWindow
     {
         public StreamEvent[] events;
         public bool          done;
-        public string        reply; // final reply text, always set when done=true
+        public string        reply;
     }
 
     [System.Serializable] private class ErrorResponse { public string detail; public string error_code; }
@@ -1032,7 +974,7 @@ public partial class ClaunityWindow : EditorWindow
     [System.Serializable]
     private class SavedMessage
     {
-        public string role;    // "user" | "assistant" | "action"
+        public string role;
         public string content;
     }
 
@@ -1065,7 +1007,7 @@ public partial class ClaunityWindow : EditorWindow
         public int    id;
         public string name;
         public string description;
-        public string status = "pending"; // "pending", "in_progress", "done", "failed"
+        public string status = "pending";
     }
 
     [System.Serializable]
@@ -1079,7 +1021,7 @@ public partial class ClaunityWindow : EditorWindow
     private class ProjectPlanFile
     {
         public string           title       = "";
-        public string           state       = "idle"; // idle, questioning, plan_ready, executing, paused, stopped, completed
+        public string           state       = "idle";
         public string           gddFileName = "";
         public string           gddContent  = "";
         public ProjectEpic[]    epics;

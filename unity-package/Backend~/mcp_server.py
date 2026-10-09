@@ -1,8 +1,5 @@
 #!/usr/bin/env python3
-"""
-Claunity MCP Server — exposes Unity tools to Claude Code via MCP protocol.
-Runs as a stdio MCP server, forwards tool calls to ClaunityBridge (Unity :8766).
-"""
+"""Claunity MCP Server — exposes Unity tools to Claude Code via MCP protocol."""
 
 import json
 import sys
@@ -10,7 +7,7 @@ import urllib.request
 import urllib.error
 
 UNITY_BRIDGE_URL = "http://127.0.0.1:8766/execute"
-BRIDGE_TIMEOUT   = 30  # seconds
+BRIDGE_TIMEOUT   = 30
 
 
 def call_unity(tool: str, input_dict: dict) -> str:
@@ -64,7 +61,6 @@ def handle(msg: dict):
         tool_name = params.get("name", "")
         tool_args = params.get("arguments", {})
 
-        # Workflow tools — handled locally, not forwarded to Unity
         if tool_name == "task_complete":
             summary = tool_args.get("summary", "done")
             result = f"✓ Task complete: {summary}"
@@ -78,7 +74,6 @@ def handle(msg: dict):
         else:
             result = call_unity(tool_name, tool_args)
 
-        # If Unity returned an image, send it as MCP image content so Claude can see it
         if result.startswith("[IMAGE:") and result.endswith("]"):
             base64_data = result[7:-1]
             content = [{"type": "image", "data": base64_data, "mimeType": "image/jpeg"}]
@@ -97,7 +92,7 @@ def handle(msg: dict):
 
     # ── notifications (no response needed) ────────────────────────────────────
     elif mid is None:
-        pass  # notification — ignore
+        pass
 
     # ── unknown ───────────────────────────────────────────────────────────────
     else:

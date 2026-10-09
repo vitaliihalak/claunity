@@ -50,11 +50,9 @@ FALLBACK_MODELS = {
 
 
 # ── Rate limiter ──────────────────────────────────────────────────────────────
-# Prevents runaway API loops (e.g. due to bugs) from draining the user's quota.
-# Hard limit: max 12 /chat requests per 60-second sliding window.
 
 RATE_LIMIT_REQUESTS = 12
-RATE_LIMIT_WINDOW   = 60  # seconds
+RATE_LIMIT_WINDOW   = 60
 
 _rate_timestamps: deque = deque()
 _rate_lock = threading.Lock()
@@ -73,7 +71,6 @@ def _check_rate_limit() -> bool:
 
 
 # ── Daily token usage ─────────────────────────────────────────────────────────
-# Tracks cumulative token usage per day, saved to ~/.config/claunity/usage.json
 
 USAGE_PATH = os.path.join(os.path.expanduser("~"), ".config", "claunity", "usage.json")
 
@@ -118,10 +115,8 @@ def track_tokens(input_tokens: int, output_tokens: int, approximate: bool = Fals
 
 
 # ── Session storage ───────────────────────────────────────────────────────────
-# Each session stores Claude message history between /chat and /chat/continue calls.
-# Sessions expire after 10 minutes of inactivity.
 
-SESSION_TTL = 600  # seconds
+SESSION_TTL = 600
 
 class _Session:
     def __init__(self, messages: list, model: str, mode: str, api_key: str, personal_prompt: str = ""):
@@ -138,9 +133,9 @@ class _Session:
 _sessions: dict[str, _Session] = {}
 
 # ── Streaming queues (Claude Code mode) ───────────────────────────────────────
-_stream_queues: dict[str, list] = {}   # session_id -> list of pending events
-_stream_done:   dict[str, bool] = {}   # session_id -> True when subprocess finished
-_stream_procs:  dict[str, object] = {} # session_id -> subprocess.Popen (for cancel)
+_stream_queues: dict[str, list] = {}
+_stream_done:   dict[str, bool] = {}
+_stream_procs:  dict[str, object] = {}
 _stream_lock = threading.Lock()
 
 
@@ -155,7 +150,6 @@ def _cleanup_sessions():
     expired = [k for k, v in _sessions.items() if now - v.touched > SESSION_TTL]
     for k in expired:
         _sessions.pop(k, None)
-    # Also clean stale streaming queues
     stale_streams = [k for k in _stream_done if k not in _stream_queues]
     for k in stale_streams:
         _stream_done.pop(k, None)
@@ -209,18 +203,18 @@ class HistoryMessage(BaseModel):
 
 class ChatRequest(BaseModel):
     message:        str
-    project_files:  str = ""   # list of project script names (for context classifier)
-    project_path:   str = ""   # absolute path to Unity project root (for Claude Code cwd)
+    project_files:  str = ""
+    project_path:   str = ""
     history:        list[HistoryMessage] = []
     mode:           str = "chat"
-    image:          str = ""   # base64 image (for test mode)
-    model_override: str = ""   # overrides config model for this session
+    image:          str = ""
+    model_override: str = ""
 
 
 class ChatContinueRequest(BaseModel):
     session_id:  str
     tool_use_id: str
-    tool_result: str   # stringified result from Unity action executor
+    tool_result: str
 
 
 class ConfigRequest(BaseModel):
@@ -349,13 +343,7 @@ def set_config(req: ConfigRequest):
 
 @app.post("/chat")
 def chat(req: ChatRequest):
-    """
-    Start a new agentic conversation turn.
-
-    Returns one of:
-      {"type": "tool_request", "session_id": ..., "tool_name": ..., "tool_input": ..., "tool_use_id": ..., "input_tokens": ..., "output_tokens": ...}
-      {"type": "final",        "reply": ..., "stop_reason": ..., "input_tokens": ..., "output_tokens": ...}
-    """
+    """Start a new agentic conversation turn."""
     if not _check_rate_limit():
         log.warning("/chat blocked by rate limiter")
         return JSONResponse(status_code=429, content={
@@ -437,14 +425,11 @@ def chat(req: ChatRequest):
         model   = effective_model
         context = build_context(req.message, req.project_files, api_key)
 
-        # Build initial messages list
         messages = []
 
-        # Add history
         for entry in req.history:
             messages.append({"role": entry.role, "content": entry.content})
 
-        # Add current user message (with optional image for test mode)
         if req.image:
             text_part = req.message or "Analyze this screenshot."
             if context:
@@ -455,13 +440,11 @@ def chat(req: ChatRequest):
             ]
         else:
             user_content = req.message
-            # Prepend context to the user message if we have any
             if context:
                 user_content = f"[Project files]\n{context}\n\n{req.message}"
 
         messages.append({"role": "user", "content": user_content})
 
-        # Test mode: direct API call without tools — always uses Haiku (fast + cheap for screenshot analysis)
         if req.mode == "test":
             from claude_client import _get_client, _build_system, _max_tokens
             client     = _get_client(api_key)
@@ -482,7 +465,6 @@ def chat(req: ChatRequest):
                 "output_tokens": response.usage.output_tokens,
             }
 
-        # Run first agentic iteration
         result = start_agentic(api_key, model, messages, req.mode, personal_prompt=personal_prompt)
 
         if result["type"] == "final":
@@ -495,10 +477,8 @@ def chat(req: ChatRequest):
                 "output_tokens": result["usage"]["output_tokens"],
             }
 
-        # Tool request — save session and return tool request to Unity
         session_id = str(uuid.uuid4())
 
-        # Append assistant's tool_use message to session history
         session_messages = messages + [{
             "role": "assistant",
             "content": [{
@@ -517,7 +497,7 @@ def chat(req: ChatRequest):
             "type":           "tool_request",
             "session_id":     session_id,
             "tool_name":      result["tool_name"],
-            "tool_input_json": json.dumps(result["tool_input"]),  # C# JsonUtility needs a string
+            "tool_input_json": json.dumps(result["tool_input"]),
             "tool_use_id":    result["tool_use_id"],
             "narration":      narration,
             "input_tokens":   result["usage"]["input_tokens"],
@@ -537,11 +517,7 @@ def chat(req: ChatRequest):
 
 @app.post("/chat/continue")
 def chat_continue(req: ChatContinueRequest):
-    """
-    Continue an agentic loop after Unity executed a tool.
-
-    Unity sends the tool result, Claude continues and returns next tool_request or final.
-    """
+    """Continue an agentic loop after Unity executed a tool."""
     _cleanup_sessions()
 
     session = _sessions.get(req.session_id)
@@ -554,7 +530,6 @@ def chat_continue(req: ChatContinueRequest):
     session.touch()
 
     try:
-        # Append tool result to session messages
         session.messages.append({
             "role": "user",
             "content": [{
@@ -564,7 +539,6 @@ def chat_continue(req: ChatContinueRequest):
             }],
         })
 
-        # Continue the loop
         result = continue_agentic(session.api_key, session.model, session.messages, session.mode, personal_prompt=session.personal_prompt)
 
         if result["type"] == "final":
@@ -578,7 +552,6 @@ def chat_continue(req: ChatContinueRequest):
                 "output_tokens": result["usage"]["output_tokens"],
             }
 
-        # Another tool request — update session with assistant's new tool_use message
         session.messages.append({
             "role": "assistant",
             "content": [{
@@ -609,11 +582,7 @@ def chat_continue(req: ChatContinueRequest):
 
 @app.get("/chat/stream/{session_id}")
 def get_stream_events(session_id: str):
-    """
-    Poll for streaming events from a Claude Code subprocess.
-    Returns pending events and drains the queue.
-    Unknown session_id (e.g. after backend restart) returns done=true immediately.
-    """
+    """Poll for streaming events from a Claude Code subprocess."""
     with _stream_lock:
         if session_id not in _stream_queues and session_id not in _stream_done:
             return {"events": [], "done": True}
@@ -622,7 +591,7 @@ def get_stream_events(session_id: str):
         if done:
             _stream_done.pop(session_id, None)
         else:
-            _stream_queues[session_id] = []  # keep queue alive for next poll
+            _stream_queues[session_id] = []
     reply = next((e["text"] for e in events if e.get("type") == "final"), "")
     return {"events": events, "done": done, "reply": reply}
 
@@ -638,10 +607,7 @@ class ScoutRequest(BaseModel):
 
 @app.post("/scout")
 def scout(req: ScoutRequest):
-    """
-    Ask Claude to find real Asset Store assets using web search.
-    Returns specific asset cards with names, URLs and prices.
-    """
+    """Ask Claude to find real Asset Store assets using web search."""
     config          = load_config()
     api_key         = config.get("api_key", "")
     use_claude_code = config.get("use_claude_code", False)

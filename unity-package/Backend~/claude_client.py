@@ -7,7 +7,6 @@ import sys
 log = logging.getLogger("claunity")
 
 # ── System prompt ─────────────────────────────────────────────────────────────
-# Short and precise — tool schemas handle all the "how to use" details.
 
 SYSTEM_PROMPT = (
     "You are Claunity — an AI assistant running live inside the user's Unity Editor. "
@@ -25,7 +24,6 @@ SYSTEM_PROMPT = (
     "7. Never use markdown tables — use bullet lists instead."
 )
 
-# Per-mode additions
 MODE_HINTS = {
     "chat": (
         "\nYou are in Chat Mode — conversational and autonomous. "
@@ -1020,7 +1018,7 @@ def _is_conversational(api_key: str, message: str) -> bool:
         )
         return "yes" in resp.content[0].text.lower()
     except Exception:
-        return False  # on any error — include context (safe fallback)
+        return False
 
 
 def build_context(message: str, project_files: str, api_key: str = "") -> str:
@@ -1028,11 +1026,9 @@ def build_context(message: str, project_files: str, api_key: str = "") -> str:
     if not project_files:
         return ""
 
-    # Claude Code path — no api_key available, always include context
     if not api_key:
         return project_files
 
-    # API path — let Haiku decide
     if _is_conversational(api_key, message):
         return ""
 
@@ -1072,13 +1068,7 @@ def _get_client(api_key: str) -> anthropic.Anthropic:
 
 
 def start_agentic(api_key: str, model: str, messages: list, mode: str, personal_prompt: str = "") -> dict:
-    """
-    Start one agentic iteration.
-    Returns:
-        {"type": "tool_request", "tool_name": ..., "tool_input": ..., "tool_use_id": ..., "usage": {...}}
-      OR
-        {"type": "final", "reply": ..., "stop_reason": ..., "usage": {...}}
-    """
+    """Start one agentic iteration."""
     client = _get_client(api_key)
     system = _build_system(mode, personal_prompt=personal_prompt)
     max_tok = _max_tokens(model)
@@ -1104,7 +1094,7 @@ def start_agentic(api_key: str, model: str, messages: list, mode: str, personal_
             return {
                 "type":        "tool_request",
                 "tool_name":   block.name,
-                "tool_input":  block.input,   # dict
+                "tool_input":  block.input,
                 "tool_use_id": block.id,
                 "narration":   text_before_tool,
                 "usage":       usage,
@@ -1169,10 +1159,7 @@ Format:
 
 
 def scout_assets(api_key: str, description: str, free_only: bool = False) -> tuple[list[dict], dict]:
-    """
-    Ask Claude to find real Asset Store assets using web search (API path).
-    Returns (assets list, usage dict).
-    """
+    """Ask Claude to find real Asset Store assets using web search (API path)."""
     client = _get_client(api_key)
     free_hint = " Only FREE assets (price $0)." if free_only else ""
     user_msg = f"Find this asset on Unity Asset Store: {description}{free_hint}"
@@ -1201,11 +1188,7 @@ def scout_assets(api_key: str, description: str, free_only: bool = False) -> tup
 
 
 def scout_assets_claude_code(description: str, free_only: bool = False) -> tuple[list[dict], dict]:
-    """
-    Find Asset Store assets using Claude Code CLI with built-in web search.
-    Used when api_key is not set but Claude Code is available.
-    Returns (assets list, usage dict with approximate=True).
-    """
+    """Find Asset Store assets using Claude Code CLI with built-in web search."""
     if not shutil.which("claude"):
         raise RuntimeError("Claude Code not found. Install it: npm install -g @anthropic-ai/claude-code")
 
@@ -1219,8 +1202,7 @@ def scout_assets_claude_code(description: str, free_only: bool = False) -> tuple
         "--dangerously-skip-permissions",
         "--output-format", "stream-json",
         "--verbose",
-        "--strict-mcp-config",   # no Unity MCP tools needed
-        # intentionally no --tools "" — keep built-in web search
+        "--strict-mcp-config",
     ]
 
     final_text = ""
@@ -1348,14 +1330,13 @@ def _tool_friendly_msg(tool_name: str, tool_input: dict) -> str:
     return msgs.get(tool_name, f"🔧 {tool_name}...")
 
 
-_screenshot_tmp_path: str = None  # track temp file for cleanup
+_screenshot_tmp_path: str = None
 
 
 def _build_claude_code_prompt(message: str, context: str, history: list, image: str) -> str:
     global _screenshot_tmp_path
     import base64 as _b64, os as _os, tempfile as _tf
 
-    # Clean up previous temp screenshot if any
     if _screenshot_tmp_path and _os.path.exists(_screenshot_tmp_path):
         try:
             _os.remove(_screenshot_tmp_path)
@@ -1392,11 +1373,7 @@ def ask_claude_code_streaming(message: str, context: str = "", history: list = N
                                on_event=None, project_path: str = None,
                                use_mcp: bool = True, personal_prompt: str = "",
                                model: str = "", proc_store: dict = None) -> tuple:
-    """
-    Streaming version of ask_claude_code.
-    Calls on_event(type, text) for each event where type is "narration" | "tool" | "final" | "error".
-    Returns (reply, stop_reason, usage) when done.
-    """
+    """Streaming version of ask_claude_code."""
     if not shutil.which("claude"):
         raise RuntimeError("Claude Code not found. Install it: npm install -g @anthropic-ai/claude-code")
 
@@ -1414,7 +1391,7 @@ def ask_claude_code_streaming(message: str, context: str = "", history: list = N
 
     final_text = ""
     has_any_tool = False
-    output_texts = []   # collect all output for approximate token counting
+    output_texts = []
     try:
         cwd = project_path if (project_path and _os.path.isdir(project_path)) else None
         cmd = [
@@ -1429,7 +1406,6 @@ def ask_claude_code_streaming(message: str, context: str = "", history: list = N
         if use_mcp:
             cmd += ["--mcp-config", mcp_config, "--disallowedTools", "Bash,computer"]
         else:
-            # No MCP tools, but allow built-in Read so Claude can view the screenshot file
             cmd += ["--strict-mcp-config", "--allowedTools", "Read"]
         proc = subprocess.Popen(
             cmd,
@@ -1500,11 +1476,9 @@ def ask_claude_code_streaming(message: str, context: str = "", history: list = N
         except Exception:
             pass
 
-    # Approximate token counts: ~4 chars per token (reasonable for code/English mix)
     approx_input  = len(full_prompt + system) // 4
     approx_output = len(" ".join(output_texts)) // 4
 
-    # If no tools were used, narration already showed the full reply — return "" to avoid duplication
     reply = final_text.strip() if has_any_tool else ""
     return reply, "stop", {"input_tokens": approx_input, "output_tokens": approx_output, "approximate": True}
 

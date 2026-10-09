@@ -24,18 +24,16 @@ public class ClaunityActionResponse
 {
     public string          message;
     public ActionPayload[] actions;
-    public string          question;      // project execution: Claude needs user input
-    public bool            task_complete; // project execution: this task is fully done
+    public string          question;
+    public bool            task_complete;
 }
 
 [Serializable]
 public class ActionPayload
 {
     public string   type;
-    // GameObject identity
     public string   name;
     public string   path;
-    // Common write fields
     public string   newName;
     public string   parent;
     public string   componentType;
@@ -44,51 +42,42 @@ public class ActionPayload
     public string   layerName;
     public bool     isStatic;
     public int      count;
-    // Transform
     public Vec3Json position;
     public Vec3Json rotation;
     public Vec3Json scale;
-    // Material
     public string   savePath;
     public string   shader;
     public string   materialPath;
     public string   propertyName;
-    public string   propertyPath;   // dot-notation for set/get_serialized_property
+    public string   propertyPath;
     public float    propertyValue;
     public ColorJson color;
-    // Scene / Asset
     public string   assetPath;
     public string   sceneName;
     public bool     additive;
-    public bool     recursive;    // list_assets: include subfolders
-    // Primitive / Mesh
-    public string   primitiveType; // add_primitive: Cube, Sphere, Capsule, Cylinder, Plane, Quad
-    public string   meshType;      // set_mesh: Cube, Sphere, Capsule, Cylinder, Plane, Quad
-    // Editor
+    public bool     recursive;
+    public string   primitiveType;
+    public string   meshType;
     public string   menuPath;
-    // Vision
-    public string   view; // "scene" | "game"
-    // Scripts
+    public string   view;
     public string   scriptName;
     public string   scriptPath;
     public string   content;
-    // UI
-    public string   elementType;  // create_ui_element: Canvas/Panel/Button/Text/Image/etc.
-    public string   text;         // UI text content
-    public string   anchor;       // RectTransform anchor preset: center/top-left/stretch/etc.
-    public Vec3Json size;         // UI size (x=width, y=height)
-    public int      fontSize;     // Text font size
-    // Animator
-    public string   fromState;     // transition source state (or "Any State" / "Entry")
-    public string   toState;       // transition target state
-    public string   parameterType; // Float / Int / Bool / Trigger
-    public string   motion;        // asset path to AnimationClip
-    public bool     isDefault;     // whether this is the default state
-    public bool     hasExitTime;   // transition: use exit time
-    public float    exitTime;      // transition: normalized exit time (0-1)
-    public float    transitionDuration; // transition: blend duration
-    public int      layer;         // animator layer index (default 0)
-    public AnimatorConditionJson[] conditions; // transition conditions
+    public string   elementType;
+    public string   text;
+    public string   anchor;
+    public Vec3Json size;
+    public int      fontSize;
+    public string   fromState;
+    public string   toState;
+    public string   parameterType;
+    public string   motion;
+    public bool     isDefault;
+    public bool     hasExitTime;
+    public float    exitTime;
+    public float    transitionDuration;
+    public int      layer;
+    public AnimatorConditionJson[] conditions;
 }
 
 [Serializable] public class Vec3Json  { public float x, y, z; }
@@ -97,9 +86,9 @@ public class ActionPayload
 [Serializable]
 public class AnimatorConditionJson
 {
-    public string parameter; // parameter name
-    public string mode;      // Greater, Less, Equals, NotEqual, If, IfNot
-    public float  threshold; // numeric threshold (for Float/Int conditions)
+    public string parameter;
+    public string mode;
+    public float  threshold;
 }
 
 // ── Pending post-reload actions ────────────────────────────────────────────────
@@ -117,7 +106,7 @@ public static class ClaunityActionExecutor
 {
     private const string PendingKey   = "Claunity_PendingActions";
     private const string PendingTsKey = "Claunity_PendingTimestamp";
-    private const double PendingMaxAgeSec = 120.0; // discard if older than 2 minutes
+    private const double PendingMaxAgeSec = 120.0;
 
     public static void SavePendingActions(ActionPayload[] actions, bool autoResume = false)
     {
@@ -131,25 +120,22 @@ public static class ClaunityActionExecutor
         var json = EditorPrefs.GetString(PendingKey, "");
         if (string.IsNullOrEmpty(json)) return null;
 
-        // Check timestamp — discard stale pending actions
         var tsStr = EditorPrefs.GetString(PendingTsKey, "");
         EditorPrefs.DeleteKey(PendingKey);
         EditorPrefs.DeleteKey(PendingTsKey);
 
-        // No timestamp = saved before this version = stale, discard
         if (string.IsNullOrEmpty(tsStr)) return null;
 
         if (long.TryParse(tsStr, out long savedTs))
         {
             var ageSec = DateTimeOffset.UtcNow.ToUnixTimeSeconds() - savedTs;
-            if (ageSec > PendingMaxAgeSec) return null; // stale — discard silently
+            if (ageSec > PendingMaxAgeSec) return null;
         }
 
         try
         {
             var w = JsonUtility.FromJson<PendingActionsWrapper>(json);
             if (w == null) return null;
-            // Return if there are pending actions OR if autoResume is set
             return (w.actions?.Length > 0 || w.autoResume) ? w : null;
         }
         catch { return null; }
@@ -312,14 +298,12 @@ public static class ClaunityActionExecutor
         string target = !string.IsNullOrEmpty(a.name) ? a.name : a.path;
         if (string.IsNullOrEmpty(target)) return null;
 
-        // Fast path: active objects only
         var go = GameObject.Find(target);
         if (go != null) return go;
 
-        // Fallback: search all objects including inactive (name match only)
         foreach (var obj in Resources.FindObjectsOfTypeAll<GameObject>())
         {
-            if (obj.hideFlags != HideFlags.None) continue; // skip editor-only objects
+            if (obj.hideFlags != HideFlags.None) continue;
             if (obj.name == target) return obj;
         }
         return null;
@@ -333,14 +317,7 @@ public static class ClaunityActionExecutor
     private static Vector3 ToVec3(Vec3Json v) =>
         v != null ? new Vector3(v.x, v.y, v.z) : Vector3.zero;
 
-    /// JsonUtility.FromJson never leaves object-typed fields (Vec3Json, ColorJson)
-    /// null when the source JSON simply omits that key — it allocates a
-    /// zero-valued instance instead. Every "optional" a.position/rotation/scale/
-    /// size/color check in this file (`if (a.position != null) ...`) silently
-    /// breaks as a result: omitting the field is indistinguishable from
-    /// explicitly passing {x:0,y:0,z:0}. Call this right after FromJson, passing
-    /// the exact raw JSON string that was parsed, to null out whichever of these
-    /// fields weren't actually present on the wire.
+    /// <summary>JsonUtility.FromJson never leaves object-typed fields (Vec3Json, ColorJson) null when the source JSON simply omits that key — it allocates a zero-valued instance instead.</summary>
     public static void ClearAbsentOptionalVectors(ActionPayload payload, string rawJson)
     {
         if (payload == null || string.IsNullOrEmpty(rawJson)) return;
@@ -355,7 +332,6 @@ public static class ClaunityActionExecutor
     {
         if (string.IsNullOrEmpty(typeName)) return null;
 
-        // First pass: exact name or common Unity namespaces
         foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
         {
             var t = asm.GetType(typeName)
@@ -365,7 +341,6 @@ public static class ClaunityActionExecutor
             if (t != null && typeof(Component).IsAssignableFrom(t)) return t;
         }
 
-        // Second pass: match by simple name, covering any user namespace
         foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
         {
             Type[] types;
@@ -398,7 +373,6 @@ public static class ClaunityActionExecutor
             error = "✗ savePath must start with 'Assets/'";
             return false;
         }
-        // Block path traversal via ".."
         if (path.Contains(".."))
         {
             error = "✗ savePath must not contain '..'";
@@ -415,13 +389,6 @@ public static class ClaunityActionExecutor
         Undo.RegisterCreatedObjectUndo(go, $"Claunity: Create {go.name}");
         if (a.position != null) go.transform.position = ToVec3(a.position);
         if (a.rotation != null) go.transform.eulerAngles = ToVec3(a.rotation);
-        // ClearAbsentOptionalVectors (called at parse time) already nulls a.scale
-        // when the request omits it. This extra all-zero check is defense in
-        // depth against an explicit (0,0,0) scale slipping through instead — a
-        // real, deliberate (0,0,0) scale is never a legitimate GameObject state
-        // (it and its children become invisible, and reparenting anything under
-        // it corrupts the children's local position/scale when Unity tries to
-        // preserve world transform through a non-invertible zero-scale matrix).
         bool scaleGiven = a.scale != null && (a.scale.x != 0f || a.scale.y != 0f || a.scale.z != 0f);
         go.transform.localScale = scaleGiven ? ToVec3(a.scale) : Vector3.one;
         if (!string.IsNullOrEmpty(a.parent))
@@ -545,11 +512,6 @@ public static class ClaunityActionExecutor
         if (a.position == null && a.rotation == null && a.scale == null)
             return "✗ At least one of position, rotation, or scale is required";
         Undo.RecordObject(go.transform, $"Claunity: Set transform {go.name}");
-        // Local space throughout (matches localScale, which was already local) —
-        // this is what "set this object's transform" should mean for a parented
-        // object, e.g. an object pulled out of an organized staging scene to
-        // build a prefab from. Use move_gameobject/rotate_gameobject for the
-        // dedicated world-space equivalents.
         if (a.position != null) go.transform.localPosition    = ToVec3(a.position);
         if (a.rotation != null) go.transform.localEulerAngles = ToVec3(a.rotation);
         if (a.scale    != null) go.transform.localScale       = ToVec3(a.scale);
@@ -607,7 +569,6 @@ public static class ClaunityActionExecutor
 
         if (string.IsNullOrEmpty(a.propertyName)) return "✗ propertyName is required";
 
-        // Resolve member (property or field, case-insensitive, includes private [SerializeField])
         var propInfo  = type.GetProperty(a.propertyName,
             BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.IgnoreCase);
         var fieldInfo = propInfo == null
@@ -624,7 +585,6 @@ public static class ClaunityActionExecutor
         object value;
         if (typeof(UnityEngine.Object).IsAssignableFrom(memberType))
         {
-            // Object reference — find the target GameObject and resolve the right type
             value = ResolveUnityObjectRef(a.content, memberType);
             if (value == null)
                 return $"✗ Object '{a.content}' not found in scene";
@@ -643,9 +603,6 @@ public static class ClaunityActionExecutor
         return $"✓ Set {a.componentType}.{a.propertyName} = '{a.content}' on '{go.name}'";
     }
 
-    // Convenience wrapper around SetComponentProperty for the common case of assigning a
-    // project asset (prefab/material/texture/etc.) — takes a plain assetPath instead of
-    // requiring the 'ObjectName:ComponentType' trick used for scene object references.
     private static string AssignAsset(ActionPayload a)
     {
         if (string.IsNullOrEmpty(a.propertyName)) return "✗ propertyName (field name) is required";
@@ -660,12 +617,10 @@ public static class ClaunityActionExecutor
         return result.StartsWith("✓ Set ") ? "✓ Assigned " + result.Substring("✓ Set ".Length) : result;
     }
 
-    // Finds a GameObject by name including inactive objects in the scene
     private static GameObject FindGameObjectIncludingInactive(string name)
     {
         var go = GameObject.Find(name);
         if (go != null) return go;
-        // GameObject.Find misses inactive objects — search all scene objects
         foreach (var obj in Resources.FindObjectsOfTypeAll<GameObject>())
         {
             if (obj.scene.IsValid() && obj.name == name)
@@ -676,14 +631,10 @@ public static class ClaunityActionExecutor
 
     private static UnityEngine.Object ResolveUnityObjectRef(string nameOrPath, Type targetType)
     {
-        // 0. Direct project asset path (e.g. "Assets/Prefabs/Enemy.prefab", "Assets/Materials/Red.mat")
-        //    Checked first — asset paths never collide with scene object names and this
-        //    avoids GameObject.Find() misinterpreting "/" as a scene hierarchy path.
         if (nameOrPath.StartsWith("Assets/"))
         {
             if (typeof(Component).IsAssignableFrom(targetType))
             {
-                // Component field pointing at a prefab: load the prefab root, then get the component off it.
                 var prefabGo = AssetDatabase.LoadAssetAtPath<GameObject>(nameOrPath);
                 if (prefabGo != null)
                 {
@@ -693,10 +644,8 @@ public static class ClaunityActionExecutor
             }
             var directAsset = AssetDatabase.LoadAssetAtPath(nameOrPath, targetType);
             if (directAsset != null) return directAsset;
-            // fall through — path might be wrong, still try name-based lookups below
         }
 
-        // 1. "ObjectName:ComponentType" format — explicit component on named object (including inactive)
         if (nameOrPath.Contains(':'))
         {
             var parts = nameOrPath.Split(':', 2);
@@ -711,8 +660,6 @@ public static class ClaunityActionExecutor
             }
         }
 
-        // 2. Scene object (Transform, GameObject, Component, or generic UnityEngine.Object)
-        //    Searches inactive objects too via FindGameObjectIncludingInactive
         if (targetType == typeof(GameObject) || targetType == typeof(Transform) ||
             targetType == typeof(UnityEngine.Object) ||
             typeof(Component).IsAssignableFrom(targetType))
@@ -727,7 +674,6 @@ public static class ClaunityActionExecutor
             }
         }
 
-        // 3. Search by name in AssetDatabase
         var typeName = targetType == typeof(UnityEngine.Object) ? "" : $" t:{targetType.Name}";
         var guids = AssetDatabase.FindAssets(nameOrPath + typeName);
         foreach (var guid in guids)
@@ -736,7 +682,6 @@ public static class ClaunityActionExecutor
             var asset = AssetDatabase.LoadAssetAtPath(path, targetType);
             if (asset != null && asset.name == nameOrPath) return asset;
         }
-        // fallback: return first match even if name doesn't match exactly
         if (guids.Length > 0)
         {
             var path = AssetDatabase.GUIDToAssetPath(guids[0]);
@@ -836,7 +781,6 @@ public static class ClaunityActionExecutor
                     prop.objectReferenceValue = null;
                 else
                 {
-                    // Try to infer the expected type from the field declaration via reflection
                     Type objRefType = typeof(UnityEngine.Object);
                     try
                     {
@@ -888,7 +832,6 @@ public static class ClaunityActionExecutor
                 ? "✗ Provide (name + componentType) or assetPath"
                 : $"✗ Could not resolve target: '{a.name}' / '{a.assetPath}'";
 
-        // No propertyPath → dump all top-level serialized properties
         if (string.IsNullOrEmpty(a.propertyPath))
         {
             var sb = new StringBuilder();
@@ -1059,7 +1002,6 @@ public static class ClaunityActionExecutor
     {
         if (string.IsNullOrEmpty(a.sceneName)) return "✗ sceneName is required";
 
-        // Auto-save the current active scene before creating a new one
         var activeScene = EditorSceneManager.GetActiveScene();
         if (activeScene.isDirty && !string.IsNullOrEmpty(activeScene.path))
             EditorSceneManager.SaveScene(activeScene);
@@ -1240,11 +1182,9 @@ public static class ClaunityActionExecutor
         if (gameViewType == null) return;
         var gameView = EditorWindow.GetWindow(gameViewType, false, null, false);
         if (gameView == null) return;
-        // Try public property (newer Unity)
         var prop = gameViewType.GetProperty("maximizeOnPlay",
             BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
         if (prop != null && prop.CanWrite) { prop.SetValue(gameView, false); return; }
-        // Try private backing field (older Unity)
         var field = gameViewType.GetField("m_MaximizeOnPlay",
             BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
         field?.SetValue(gameView, false);
@@ -1266,7 +1206,6 @@ public static class ClaunityActionExecutor
 
     private static string AddPrimitive(ActionPayload a)
     {
-        // primitiveType = shape, name = GameObject name
         var shapeStr = !string.IsNullOrEmpty(a.primitiveType) ? a.primitiveType : a.name;
         if (string.IsNullOrEmpty(shapeStr)) shapeStr = "Cube";
         if (!Enum.TryParse<PrimitiveType>(shapeStr, true, out var primitiveType))
@@ -1304,12 +1243,10 @@ public static class ClaunityActionExecutor
         var mesh = UnityEditor.AssetDatabase.GetBuiltinExtraResource<Mesh>($"Library/unity default resources/{a.meshType}.fbx");
         if (mesh == null)
         {
-            // fallback path used in some Unity versions
             mesh = UnityEditor.AssetDatabase.GetBuiltinExtraResource<Mesh>($"Library/unity default resources/{a.meshType} Instance");
         }
         if (mesh == null)
         {
-            // Create temporary primitive, grab its mesh, destroy the primitive
             var temp = GameObject.CreatePrimitive((PrimitiveType)System.Enum.Parse(typeof(PrimitiveType), a.meshType, true));
             mesh = temp.GetComponent<MeshFilter>().sharedMesh;
             UnityEngine.Object.DestroyImmediate(temp);
@@ -1338,13 +1275,11 @@ public static class ClaunityActionExecutor
         "VerticalLayoutGroup", "HorizontalLayoutGroup", "GridLayoutGroup"
     };
 
-    // Returns the scene Canvas to use as default parent, or null
     private static GameObject GetOrCreateCanvas()
     {
         var existing = UnityEngine.Object.FindFirstObjectByType<Canvas>();
         if (existing != null) return existing.gameObject;
 
-        // Create Canvas + CanvasScaler + GraphicRaycaster
         var go = new GameObject("Canvas");
         Undo.RegisterCreatedObjectUndo(go, "Claunity: Create Canvas");
         var canvas = go.AddComponent<Canvas>();
@@ -1368,7 +1303,6 @@ public static class ClaunityActionExecutor
         es.AddComponent<UnityEngine.EventSystems.StandaloneInputModule>();
     }
 
-    // Apply a named anchor preset to a RectTransform
     private static void ApplyAnchorPreset(RectTransform rt, string preset)
     {
         if (string.IsNullOrEmpty(preset)) preset = "center";
@@ -1403,7 +1337,7 @@ public static class ClaunityActionExecutor
                 rt.anchorMin = rt.anchorMax = Vector2.zero; rt.pivot = Vector2.zero; break;
             case "bottom-right":
                 rt.anchorMin = rt.anchorMax = new Vector2(1, 0); rt.pivot = new Vector2(1, 0); break;
-            default: // center
+            default:
                 rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f); rt.pivot = new Vector2(0.5f, 0.5f); break;
         }
     }
@@ -1414,7 +1348,6 @@ public static class ClaunityActionExecutor
         if (a.position != null) rt.anchoredPosition  = new Vector2(a.position.x, a.position.y);
     }
 
-    // Try to add TextMeshProUGUI, fall back to legacy Text
     private static Component AddTextComponent(GameObject go, string content, int fontSize = 24, Color? color = null)
     {
         var tmpType = Type.GetType("TMPro.TextMeshProUGUI, Unity.TextMeshPro")
@@ -1430,7 +1363,6 @@ public static class ClaunityActionExecutor
                 tmpType.GetProperty("color")?.SetValue(comp, color.Value);
             return comp;
         }
-        // Legacy fallback
         var txt = go.AddComponent<UnityEngine.UI.Text>();
         txt.text      = content ?? "";
         txt.fontSize  = fontSize > 0 ? fontSize : 24;
@@ -1446,7 +1378,6 @@ public static class ClaunityActionExecutor
 
         var etype = a.elementType.Trim();
 
-        // Canvas is top-level — special case
         if (etype.Equals("Canvas", StringComparison.OrdinalIgnoreCase))
         {
             var cv = new GameObject(string.IsNullOrEmpty(a.name) ? "Canvas" : a.name);
@@ -1462,7 +1393,6 @@ public static class ClaunityActionExecutor
             return $"✓ Created Canvas '{cv.name}' (1920×1080 scale-with-screen)";
         }
 
-        // Resolve parent — find by name, or auto-pick Canvas
         GameObject parentGO = null;
         if (!string.IsNullOrEmpty(a.parent))
         {
@@ -1543,7 +1473,6 @@ public static class ClaunityActionExecutor
             // ── Button ─────────────────────────────────────────────────────────
             case "button":
             {
-                // Root: Image + Button
                 var go  = new GameObject(elName);
                 Undo.RegisterCreatedObjectUndo(go, $"Claunity: Create Button");
                 go.transform.SetParent(parentGO.transform, false);
@@ -1554,7 +1483,6 @@ public static class ClaunityActionExecutor
                 ApplyAnchorPreset(rt, a.anchor ?? "center");
                 rt.sizeDelta = a.size != null ? new Vector2(a.size.x, a.size.y) : new Vector2(160, 40);
                 ApplySizeAndPosition(rt, a);
-                // Child: Text
                 var txtGO = new GameObject("Text");
                 txtGO.transform.SetParent(go.transform, false);
                 AddTextComponent(txtGO, a.text ?? elName, a.fontSize > 0 ? a.fontSize : 18, Color.white);
@@ -1576,7 +1504,6 @@ public static class ClaunityActionExecutor
                 ApplyAnchorPreset(rt, a.anchor ?? "center");
                 rt.sizeDelta = a.size != null ? new Vector2(a.size.x, a.size.y) : new Vector2(160, 30);
                 ApplySizeAndPosition(rt, a);
-                // Background
                 var bg = new GameObject("Background");
                 bg.transform.SetParent(go.transform, false);
                 var bgImg = bg.AddComponent<Image>();
@@ -1585,7 +1512,6 @@ public static class ClaunityActionExecutor
                 bgRT.sizeDelta = new Vector2(20, 20);
                 bgRT.anchorMin = bgRT.anchorMax = new Vector2(0, 0.5f);
                 bgRT.anchoredPosition = new Vector2(10, 0);
-                // Checkmark
                 var ck = new GameObject("Checkmark");
                 ck.transform.SetParent(bg.transform, false);
                 var ckImg = ck.AddComponent<Image>();
@@ -1594,7 +1520,6 @@ public static class ClaunityActionExecutor
                 ckRT.anchorMin = Vector2.zero; ckRT.anchorMax = Vector2.one;
                 ckRT.offsetMin = new Vector2(2,2); ckRT.offsetMax = new Vector2(-2,-2);
                 toggle.graphic = ckImg;
-                // Label
                 var lbl = new GameObject("Label");
                 lbl.transform.SetParent(go.transform, false);
                 AddTextComponent(lbl, a.text ?? elName, a.fontSize > 0 ? a.fontSize : 14, Color.black);
@@ -1615,7 +1540,6 @@ public static class ClaunityActionExecutor
                 ApplyAnchorPreset(rt, a.anchor ?? "center");
                 rt.sizeDelta = a.size != null ? new Vector2(a.size.x, a.size.y) : new Vector2(200, 20);
                 ApplySizeAndPosition(rt, a);
-                // Background
                 var bg = new GameObject("Background");
                 bg.transform.SetParent(go.transform, false);
                 var bgImg = bg.AddComponent<Image>();
@@ -1623,13 +1547,11 @@ public static class ClaunityActionExecutor
                 var bgRT  = bg.GetComponent<RectTransform>();
                 bgRT.anchorMin = new Vector2(0, 0.25f); bgRT.anchorMax = new Vector2(1, 0.75f);
                 bgRT.offsetMin = bgRT.offsetMax = Vector2.zero;
-                // Fill Area
                 var fillArea = new GameObject("Fill Area");
                 fillArea.transform.SetParent(go.transform, false);
                 var faRT = fillArea.AddComponent<RectTransform>();
                 faRT.anchorMin = new Vector2(0, 0.25f); faRT.anchorMax = new Vector2(1, 0.75f);
                 faRT.offsetMin = new Vector2(5, 0); faRT.offsetMax = new Vector2(-15, 0);
-                // Fill
                 var fill = new GameObject("Fill");
                 fill.transform.SetParent(fillArea.transform, false);
                 var fillImg = fill.AddComponent<Image>();
@@ -1663,7 +1585,6 @@ public static class ClaunityActionExecutor
             // ── InputField ─────────────────────────────────────────────────────
             case "inputfield":
             {
-                // Try TMP InputField first
                 var tmpIfType = Type.GetType("TMPro.TMP_InputField, Unity.TextMeshPro")
                              ?? Type.GetType("TMPro.TMP_InputField, Assembly-CSharp");
                 var go = new GameObject(elName);
@@ -1675,14 +1596,12 @@ public static class ClaunityActionExecutor
                 ApplyAnchorPreset(rt, a.anchor ?? "center");
                 rt.sizeDelta = a.size != null ? new Vector2(a.size.x, a.size.y) : new Vector2(200, 40);
                 ApplySizeAndPosition(rt, a);
-                // Text area
                 var textGO = new GameObject("Text");
                 textGO.transform.SetParent(go.transform, false);
                 AddTextComponent(textGO, a.text ?? "", a.fontSize > 0 ? a.fontSize : 16, Color.white);
                 var textRT = textGO.GetComponent<RectTransform>();
                 textRT.anchorMin = Vector2.zero; textRT.anchorMax = Vector2.one;
                 textRT.offsetMin = new Vector2(8, 4); textRT.offsetMax = new Vector2(-8, -4);
-                // Legacy InputField as fallback (TMP requires more setup)
                 if (tmpIfType == null)
                 {
                     var inputField = go.AddComponent<InputField>();
@@ -1704,7 +1623,6 @@ public static class ClaunityActionExecutor
                 ApplyAnchorPreset(rt, a.anchor ?? "center");
                 rt.sizeDelta = a.size != null ? new Vector2(a.size.x, a.size.y) : new Vector2(300, 200);
                 ApplySizeAndPosition(rt, a);
-                // Viewport
                 var vp = new GameObject("Viewport");
                 vp.transform.SetParent(go.transform, false);
                 var vpImg = vp.AddComponent<Image>(); vpImg.color = Color.clear;
@@ -1712,7 +1630,6 @@ public static class ClaunityActionExecutor
                 var vpRT = vp.GetComponent<RectTransform>();
                 vpRT.anchorMin = Vector2.zero; vpRT.anchorMax = Vector2.one;
                 vpRT.offsetMin = vpRT.offsetMax = Vector2.zero;
-                // Content
                 var content = new GameObject("Content");
                 content.transform.SetParent(vp.transform, false);
                 var vlg = content.AddComponent<VerticalLayoutGroup>();
@@ -1790,7 +1707,6 @@ public static class ClaunityActionExecutor
         var path   = $"{folder}/{a.scriptName}.cs";
         if (System.IO.File.Exists(path))
         {
-            // File already exists — treat as edit to prevent silent data loss
             System.IO.File.WriteAllText(path, a.content);
             AssetDatabase.Refresh();
             return $"✓ Updated existing script '{a.scriptName}' at {path} (file already existed)";
@@ -1844,7 +1760,7 @@ public static class ClaunityActionExecutor
         "✗ Input System not installed. Run: {\"type\":\"add_package\",\"content\":\"com.unity.inputsystem\"} then restart Unity.";
 
 #if ENABLE_INPUT_SYSTEM
-    // Cache recently created assets so subsequent actions in the same batch can find them
+
     private static readonly Dictionary<string, UnityEngine.InputSystem.InputActionAsset> _inputAssetCache
         = new Dictionary<string, UnityEngine.InputSystem.InputActionAsset>();
 
@@ -1855,7 +1771,6 @@ public static class ClaunityActionExecutor
         return AssetDatabase.LoadAssetAtPath<UnityEngine.InputSystem.InputActionAsset>(path);
     }
 
-    // Write asset as JSON (proper .inputactions format), reimport, refresh cache
     private static void SaveInputAsset(UnityEngine.InputSystem.InputActionAsset asset, string path)
     {
         var json = asset.ToJson();
@@ -1891,7 +1806,6 @@ public static class ClaunityActionExecutor
         EnsureFolder(savePath);
         var path = $"{savePath}/{a.name}.inputactions";
 
-        // Write minimal valid JSON — the format Unity's Input System editor uses
         var json = $"{{\"name\":\"{a.name}\",\"maps\":[],\"controlSchemes\":[]}}";
         System.IO.File.WriteAllText(path, json);
         AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceSynchronousImport);
@@ -1929,7 +1843,6 @@ public static class ClaunityActionExecutor
         if (asset == null) return $"✗ InputActionAsset not found: '{a.assetPath}'";
         if (string.IsNullOrEmpty(a.name)) return "✗ name is required";
 
-        // parent = action map name
         var map = FindMap(asset, a.parent);
         if (map == null)
             return string.IsNullOrEmpty(a.parent)
@@ -1939,7 +1852,6 @@ public static class ClaunityActionExecutor
         if (map.FindAction(a.name, throwIfNotFound: false) != null)
             return $"✗ Action '{a.name}' already exists in map '{map.name}'";
 
-        // parameterType = action type (Button/Value/PassThrough)
         var actionType = UnityEngine.InputSystem.InputActionType.Button;
         switch ((a.parameterType ?? "Button").Trim().ToLower())
         {
@@ -1947,7 +1859,6 @@ public static class ClaunityActionExecutor
             case "passthrough": actionType = UnityEngine.InputSystem.InputActionType.PassThrough; break;
         }
 
-        // text = expected control type (float / Vector2 / Vector3 / etc.)
         var controlType = a.text ?? "";
 
         map.AddAction(a.name, actionType, expectedControlLayout: controlType);
@@ -1967,7 +1878,6 @@ public static class ClaunityActionExecutor
         if (asset == null) return $"✗ InputActionAsset not found: '{a.assetPath}'";
         if (string.IsNullOrEmpty(a.name)) return "✗ name (action name) is required";
 
-        // Find action — optionally in specific map (parent)
         UnityEngine.InputSystem.InputAction action;
         if (!string.IsNullOrEmpty(a.parent))
         {
@@ -1981,10 +1891,8 @@ public static class ClaunityActionExecutor
         }
         if (action == null) return $"✗ Action '{a.name}' not found";
 
-        // propertyName = composite type (2DVector / 1DAxis / ButtonWithOneModifier / etc.)
         if (!string.IsNullOrEmpty(a.propertyName))
         {
-            // Composite binding — parts encoded in content as "up=<Keyboard>/w,down=<Keyboard>/s,..."
             if (string.IsNullOrEmpty(a.content))
                 return $"✗ content is required for composite — format: 'up=<Keyboard>/w,down=<Keyboard>/s,left=<Keyboard>/a,right=<Keyboard>/d'";
 
@@ -2000,7 +1908,6 @@ public static class ClaunityActionExecutor
             return $"✓ Added {a.propertyName} composite to '{a.name}': {a.content}";
         }
 
-        // Simple binding — content = binding path
         if (string.IsNullOrEmpty(a.content))
             return "✗ content is required — binding path e.g. '<Keyboard>/space', '<Gamepad>/buttonSouth'";
 
@@ -2050,7 +1957,6 @@ public static class ClaunityActionExecutor
     {
         if (string.IsNullOrEmpty(a.scriptName)) return "✗ scriptName is required";
 
-        // Find ScriptableObject type across all assemblies
         Type soType = null;
         foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
         {
@@ -2094,7 +2000,6 @@ public static class ClaunityActionExecutor
         var tagsProp = so.FindProperty("tags");
         if (tagsProp == null) return "✗ 'tags' property not found in TagManager";
 
-        // Check duplicate
         for (int i = 0; i < tagsProp.arraySize; i++)
             if (tagsProp.GetArrayElementAtIndex(i).stringValue == a.name)
                 return $"✗ Tag '{a.name}' already exists";
@@ -2116,7 +2021,6 @@ public static class ClaunityActionExecutor
         var layersProp = so.FindProperty("layers");
         if (layersProp == null) return "✗ 'layers' property not found in TagManager";
 
-        // Layers 0-7 are built-in, user layers start at 8
         for (int i = 8; i < layersProp.arraySize; i++)
         {
             var elem = layersProp.GetArrayElementAtIndex(i);
@@ -2199,11 +2103,9 @@ public static class ClaunityActionExecutor
     {
         if (string.IsNullOrEmpty(nameOrPath)) return null;
 
-        // Try as direct asset path first
         var ctrl = AssetDatabase.LoadAssetAtPath<UnityEditor.Animations.AnimatorController>(nameOrPath);
         if (ctrl != null) return ctrl;
 
-        // Resolve by name: search all .controller assets
         var nameOnly = System.IO.Path.GetFileNameWithoutExtension(nameOrPath);
         var guids = AssetDatabase.FindAssets($"t:AnimatorController {nameOnly}");
         foreach (var guid in guids)
@@ -2284,14 +2186,12 @@ public static class ClaunityActionExecutor
         if (FindAnimState(sm, a.name) != null)
             return $"✗ State '{a.name}' already exists in layer {a.layer}";
 
-        // Auto-position: stack new states vertically
         var pos = a.position != null
             ? new Vector3(a.position.x, a.position.y, 0)
             : new Vector3(300, 60 + sm.states.Length * 70, 0);
 
         var state = sm.AddState(a.name, pos);
 
-        // Assign AnimationClip if motion path provided
         if (!string.IsNullOrEmpty(a.motion))
         {
             var clip = AssetDatabase.LoadAssetAtPath<AnimationClip>(a.motion);
@@ -2336,13 +2236,11 @@ public static class ClaunityActionExecutor
             transition = fromState.AddTransition(toState);
         }
 
-        // Configure transition timing
         transition.hasExitTime      = a.hasExitTime;
         transition.exitTime         = a.exitTime > 0 ? a.exitTime : 0.9f;
         transition.duration         = a.transitionDuration > 0 ? a.transitionDuration : 0.1f;
-        transition.hasFixedDuration = false; // normalized duration
+        transition.hasFixedDuration = false;
 
-        // Add conditions
         if (a.conditions != null)
         {
             foreach (var cond in a.conditions)
@@ -2383,7 +2281,6 @@ public static class ClaunityActionExecutor
         var sb = new StringBuilder();
         sb.AppendLine($"AnimatorController: {ctrl.name}");
 
-        // Parameters
         sb.AppendLine($"\nParameters ({ctrl.parameters.Length}):");
         foreach (var p in ctrl.parameters)
             sb.AppendLine($"  {p.name} ({p.type})" +
@@ -2391,7 +2288,6 @@ public static class ClaunityActionExecutor
                  p.type == AnimatorControllerParameterType.Int   ? $" = {p.defaultInt}"   :
                  p.type == AnimatorControllerParameterType.Bool  ? $" = {p.defaultBool}"  : ""));
 
-        // Layers and states
         for (int i = 0; i < ctrl.layers.Length; i++)
         {
             var layer = ctrl.layers[i];
@@ -2412,7 +2308,6 @@ public static class ClaunityActionExecutor
                         (condParts.Length > 0 ? $" [{condParts}]" : ""));
                 }
             }
-            // Any State transitions
             if (sm.anyStateTransitions.Length > 0)
             {
                 sb.AppendLine($"  Any State transitions ({sm.anyStateTransitions.Length}):");
@@ -2433,7 +2328,6 @@ public static class ClaunityActionExecutor
 
     private static string BakeNavMesh(ActionPayload a)
     {
-        // 1. New NavMesh Surface API (com.unity.ai.navigation package)
         var surfaceType = Type.GetType("Unity.AI.Navigation.NavMeshSurface, Unity.AI.Navigation");
         if (surfaceType != null)
         {
@@ -2447,7 +2341,6 @@ public static class ClaunityActionExecutor
             return "✗ No NavMeshSurface components found in scene — add one to a GameObject first";
         }
 
-        // 2. Legacy UnityEditor.AI.NavMeshBuilder
         try
         {
             var builderType = Type.GetType("UnityEditor.AI.NavMeshBuilder, UnityEditor");
@@ -2505,7 +2398,7 @@ public static class ClaunityActionExecutor
             {
                 case "game":   return CaptureGameView();
                 case "camera": return CaptureCamera();
-                default:       return CaptureSceneView(); // "scene" or unspecified
+                default:       return CaptureSceneView();
             }
         }
         catch (Exception e)
@@ -2530,15 +2423,12 @@ public static class ClaunityActionExecutor
 
     private static string CaptureGameView()
     {
-        // In Play Mode, use ScreenCapture.CaptureScreenshotAsTexture — captures the Game View
-        // directly without requiring Camera.main (works even with no camera in the scene)
         if (EditorApplication.isPlaying)
         {
             var tex = ScreenCapture.CaptureScreenshotAsTexture();
             if (tex != null) return CompressAndEncode(tex);
         }
 
-        // In Edit Mode, try to capture the Game View window via screen grab
         var gameViewType = typeof(UnityEditor.EditorWindow).Assembly
             .GetType("UnityEditor.GameView");
         if (gameViewType != null)
@@ -2547,7 +2437,6 @@ public static class ClaunityActionExecutor
             if (gameView != null) return CaptureEditorWindow(gameView);
         }
 
-        // Fallback: render via main camera
         var cam = Camera.main ?? UnityEngine.Object.FindFirstObjectByType<Camera>();
         if (cam == null) return "✗ No camera found in scene";
         return RenderCameraToBase64(cam);
@@ -2555,7 +2444,6 @@ public static class ClaunityActionExecutor
 
     private static string CaptureEditorWindow(UnityEditor.EditorWindow window)
     {
-        // Focus window so it draws, then grab pixels from its position on screen
         window.Focus();
         window.Repaint();
 
@@ -2565,7 +2453,6 @@ public static class ClaunityActionExecutor
         int w    = Mathf.Clamp(Mathf.RoundToInt(pos.width),  64, 1920);
         int h    = Mathf.Clamp(Mathf.RoundToInt(pos.height), 64, 1080);
 
-        // Unity coords: screen Y is flipped relative to texture
         var colors = UnityEditorInternal.InternalEditorUtility.ReadScreenPixel(
             new Vector2(x, y), w, h);
 
@@ -2598,10 +2485,7 @@ public static class ClaunityActionExecutor
         return CompressAndEncode(tex);
     }
 
-    /// <summary>
-    /// Resize screenshot to max 1024px on the longest side and encode as JPG (quality 75).
-    /// Reduces payload from ~5-10MB PNG to ~100-300KB JPG.
-    /// </summary>
+    /// <summary>Resize screenshot to max 1024px on the longest side and encode as JPG (quality 75).</summary>
     private static string CompressAndEncode(Texture2D source)
     {
         const int MaxDimension = 1024;
@@ -2612,7 +2496,6 @@ public static class ClaunityActionExecutor
         int dstW = srcW;
         int dstH = srcH;
 
-        // Downscale if either dimension exceeds max
         if (srcW > MaxDimension || srcH > MaxDimension)
         {
             float scale = Mathf.Min((float)MaxDimension / srcW, (float)MaxDimension / srcH);
@@ -2677,7 +2560,6 @@ public static class ClaunityActionExecutor
 
         if (string.IsNullOrEmpty(a.propertyName))
         {
-            // No specific property — dump public + [SerializeField] private fields and properties
             var sb = new StringBuilder();
             sb.AppendLine($"{a.componentType} on '{go.name}':");
             foreach (var f in type.GetFields(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly))
@@ -2690,7 +2572,6 @@ public static class ClaunityActionExecutor
             return sb.ToString().TrimEnd();
         }
 
-        // Specific property/field — search public then all fields (including private), case-insensitive
         var prop = type.GetProperty(a.propertyName,
             BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase);
         if (prop != null && prop.CanRead)
@@ -2747,7 +2628,6 @@ public static class ClaunityActionExecutor
     {
         if (string.IsNullOrEmpty(a.content)) return "✗ content is required";
 
-        // Try Roslyn syntax analysis — Microsoft.CodeAnalysis.CSharp is loaded in Unity Editor
         try
         {
             var roslynAsm = AppDomain.CurrentDomain.GetAssemblies()
@@ -2779,7 +2659,7 @@ public static class ClaunityActionExecutor
                         {
                             var dType    = d.GetType();
                             var severity = (int)(dType.GetProperty("Severity")?.GetValue(d) ?? -1);
-                            if (severity < 2) continue; // skip Hidden (0) and Info (1)
+                            if (severity < 2) continue;
 
                             var getMsg = dType.GetMethod("GetMessage", new[] { typeof(System.IFormatProvider) });
                             var msg    = getMsg?.Invoke(d, new object[] { null }) as string ?? "";
@@ -2876,13 +2756,11 @@ public static class ClaunityActionExecutor
         var sb = new StringBuilder();
         sb.AppendLine("=== Performance Stats ===");
 
-        // Memory
         sb.AppendLine($"Memory Allocated:   {UnityEngine.Profiling.Profiler.GetTotalAllocatedMemoryLong() / (1024L * 1024L):F1} MB");
         sb.AppendLine($"Memory Reserved:    {UnityEngine.Profiling.Profiler.GetTotalReservedMemoryLong() / (1024L * 1024L):F1} MB");
         sb.AppendLine($"Mono Heap:          {UnityEngine.Profiling.Profiler.GetMonoHeapSizeLong() / (1024L * 1024L):F1} MB");
         sb.AppendLine($"Mono Used:          {UnityEngine.Profiling.Profiler.GetMonoUsedSizeLong() / (1024L * 1024L):F1} MB");
 
-        // Rendering stats (what Unity shows in the Game View Stats panel)
         sb.AppendLine($"Draw Calls:         {UnityEditor.UnityStats.drawCalls}");
         sb.AppendLine($"Batches:            {UnityEditor.UnityStats.batches}");
         sb.AppendLine($"Triangles:          {UnityEditor.UnityStats.triangles:N0}");
@@ -2890,7 +2768,6 @@ public static class ClaunityActionExecutor
         sb.AppendLine($"Dynamic Batched:    {UnityEditor.UnityStats.dynamicBatchedDrawCalls}");
         sb.AppendLine($"Static Batched:     {UnityEditor.UnityStats.staticBatchedDrawCalls}");
 
-        // FPS
         bool playing = EditorApplication.isPlaying;
         if (playing && Time.deltaTime > 0f)
             sb.AppendLine($"FPS:                {1f / Time.deltaTime:F1}");
@@ -2991,10 +2868,8 @@ public static class ClaunityActionExecutor
 
         if (string.IsNullOrEmpty(a.assetPath)) return "✗ assetPath is required (e.g. Assets/Audio/MyClip.wav or clip name)";
 
-        // Try direct asset path first
         var clip = AssetDatabase.LoadAssetAtPath<AudioClip>(a.assetPath);
 
-        // Fallback: search by name
         if (clip == null)
         {
             var guids = AssetDatabase.FindAssets($"{a.assetPath} t:AudioClip");
@@ -3020,9 +2895,6 @@ public static class ClaunityActionExecutor
 
     private static string BuildPlayer(ActionPayload action)
     {
-        // content = output path (e.g. "Builds/Windows64/MyGame.exe")
-        // propertyName = platform string
-        // parent = scenes mode: "all" or "current"
         string outputPath  = action.content?.Trim();
         string platformStr = action.propertyName ?? "Windows64";
         string scenesMode  = action.parent ?? "all";

@@ -15,9 +15,6 @@ namespace Claunity
 
 public partial class ClaunityWindow
 {
-    // ══════════════════════════════════════════════════════════════════════════
-    // PROJECT MODE
-    // ══════════════════════════════════════════════════════════════════════════
 
     // ── View refresh ───────────────────────────────────────────────────────────
 
@@ -33,7 +30,6 @@ public partial class ClaunityWindow
         }
         else if (_plan.state == "completed")
         {
-            // Completed — show chat phase with summary and "Load New Project" button
             ShowProjectChatPhase();
             RebuildProjectChat();
             _projectInputArea?.AddToClassList("project-input-area--hidden");
@@ -41,7 +37,6 @@ public partial class ClaunityWindow
         }
         else
         {
-            // plan_ready, executing, paused, stopped — show board
             ShowProjectBoardPhase();
             RebuildProjectBoard();
             UpdateProjectControls();
@@ -53,7 +48,6 @@ public partial class ClaunityWindow
         _projectChatPhase?.RemoveFromClassList("project-chat-phase--hidden");
         _projectBoardPhase?.AddToClassList("project-board-phase--hidden");
 
-        // Show idle splash only when no plan exists yet
         bool hasGdd = _plan != null && _plan.state != "idle";
         _projectIdleSplash?.EnableInClassList("project-idle-splash--hidden", hasGdd);
         _projectActiveArea?.EnableInClassList("project-active-area--hidden", !hasGdd);
@@ -79,11 +73,9 @@ public partial class ClaunityWindow
         var fileName = System.IO.Path.GetFileName(path);
         var charCount = content.Length;
 
-        // Switch from idle splash to active area
         _projectIdleSplash?.AddToClassList("project-idle-splash--hidden");
         _projectActiveArea?.RemoveFromClassList("project-active-area--hidden");
 
-        // Ensure input area is visible and done bar is hidden (in case previous project was completed)
         _projectInputArea?.RemoveFromClassList("project-input-area--hidden");
         _projectDoneBar?.AddToClassList("project-start-bar--hidden");
 
@@ -95,7 +87,7 @@ public partial class ClaunityWindow
 
         EnsurePlan();
         _plan.gddFileName = fileName;
-        int gddBudget = GetMaxContextChars() / 3; // reserve 1/3 of context for GDD
+        int gddBudget = GetMaxContextChars() / 3;
         _plan.gddContent  = content.Length > gddBudget ? content.Substring(0, gddBudget) + "\n[...truncated]" : content;
         _plan.state = "questioning";
         SaveProjectPlan();
@@ -189,7 +181,6 @@ public partial class ClaunityWindow
 
         TrackTokenUsage(response.input_tokens, response.output_tokens);
 
-        // Claude Code streaming path — poll for events in the project chat container
         if (response.type == "streaming")
         {
             EditorPrefs.SetString("Claunity_StreamResume", response.session_id);
@@ -200,7 +191,6 @@ public partial class ClaunityWindow
             yield break;
         }
 
-        // API path: Claude responds with text only (no tools needed in planning)
         SetProjectInputEnabled(true);
         _waitingForResponse = false;
         HideProjectThinking();
@@ -208,7 +198,6 @@ public partial class ClaunityWindow
         _projectHistory.Add(new HistoryMessage { role = "assistant", content = reply });
         SaveProjectPlan();
 
-        // Check if Claude returned a plan JSON
         var planData = TryParseProjectPlan(reply);
         if (planData != null)
         {
@@ -225,7 +214,6 @@ public partial class ClaunityWindow
 
     private IEnumerator PollStreamingForProjectChat(string sessionId)
     {
-        // Keep session resumable across domain reloads
         EditorPrefs.SetString("Claunity_StreamResume", sessionId);
         EditorPrefs.SetString(StreamContextPref, "project_chat");
 
@@ -313,14 +301,13 @@ public partial class ClaunityWindow
 
     private IEnumerator PollStreamingForProjectExecution(string sessionId, int taskId)
     {
-        // Keep session resumable across domain reloads
         EditorPrefs.SetString("Claunity_StreamResume", sessionId);
         EditorPrefs.SetString(StreamContextPref, "project_execution");
         EditorPrefs.SetInt(StreamTaskIdPref, taskId);
 
         int failCount = 0;
         double startTime = EditorApplication.timeSinceStartup;
-        const double maxPollSec = 600.0; // tasks can take longer
+        const double maxPollSec = 600.0;
 
         while (true)
         {
@@ -415,7 +402,6 @@ public partial class ClaunityWindow
     private void ApplyProjectChatReply(string reply)
     {
         if (string.IsNullOrEmpty(reply)) return;
-        // Check for duplicate (domain reload resume)
         if (_projectHistory.Count > 0 &&
             _projectHistory[_projectHistory.Count - 1].role == "assistant" &&
             _projectHistory[_projectHistory.Count - 1].content == reply) return;
@@ -438,7 +424,6 @@ public partial class ClaunityWindow
         _plan.title  = planData.title ?? "Project Plan";
         _plan.epics  = planData.epics;
         _plan.state  = "plan_ready";
-        // Assign sequential IDs and ensure status is set
         int id = 1;
         if (_plan.epics != null)
             foreach (var epic in _plan.epics)
@@ -450,7 +435,6 @@ public partial class ClaunityWindow
                     }
         SaveProjectPlan();
 
-        // Show plan summary in chat
         var sb = new StringBuilder();
         sb.AppendLine($"✅ Plan ready: **{_plan.title}**");
         sb.AppendLine();
@@ -464,10 +448,8 @@ public partial class ClaunityWindow
             }
         AddProjectMessage(sb.ToString().TrimEnd(), isUser: false);
 
-        // Show Start Building bar
         _projectStartBar?.RemoveFromClassList("project-start-bar--hidden");
 
-        // Scroll to bottom
         _projectChatScroll?.schedule
             .Execute(() => _projectChatScroll.scrollOffset = new Vector2(0, float.MaxValue))
             .StartingIn(50);
@@ -503,7 +485,6 @@ public partial class ClaunityWindow
         if (_projectChatContainer == null) return;
         _projectChatContainer.Clear();
 
-        // Show only planning-phase messages — execution internal traffic is not useful to the user
         var planningMessages = _projectHistory.Take(_planningHistoryEnd > 0 ? _planningHistoryEnd : _projectHistory.Count);
         foreach (var msg in planningMessages)
         {
@@ -511,14 +492,12 @@ public partial class ClaunityWindow
                 AddProjectMessage(msg.content, msg.role == "user");
         }
 
-        // Restore file info label
         if (_plan != null && !string.IsNullOrEmpty(_plan.gddFileName) && _projectFileInfo != null)
         {
             _projectFileInfo.text = $"📄 {_plan.gddFileName}";
             _projectFileInfo.RemoveFromClassList("project-file-info--hidden");
         }
 
-        // Restore start bar if plan ready
         if (_plan != null && (_plan.state == "plan_ready"))
             _projectStartBar?.RemoveFromClassList("project-start-bar--hidden");
     }
@@ -543,7 +522,6 @@ public partial class ClaunityWindow
     {
         if (string.IsNullOrEmpty(text) || !text.Contains("\"plan\"")) return null;
 
-        // Strip markdown code block if present
         var stripped = text;
         var codeStart = text.IndexOf("```");
         if (codeStart >= 0)
@@ -551,19 +529,16 @@ public partial class ClaunityWindow
             var codeEnd = text.IndexOf("```", codeStart + 3);
             if (codeEnd > codeStart)
             {
-                // Extract content between ``` markers, skip first line (```json)
                 var inner = text.Substring(codeStart + 3, codeEnd - codeStart - 3);
                 var nl = inner.IndexOf('\n');
                 stripped = nl >= 0 ? inner.Substring(nl + 1) : inner;
             }
         }
 
-        // Find opening { that contains "plan" key (handles whitespace/newlines)
         var start = stripped.IndexOf("{\"plan\"");
         if (start < 0) start = stripped.IndexOf("{ \"plan\"");
         if (start < 0)
         {
-            // Claude may write {\n  "plan": — find first { and check if "plan" follows
             start = stripped.IndexOf('{');
             while (start >= 0)
             {
@@ -597,7 +572,7 @@ public partial class ClaunityWindow
     {
         if (_plan == null || _plan.epics == null) return;
         _plan.state = "executing";
-        _planningHistoryEnd = _projectHistory.Count; // freeze planning chat display
+        _planningHistoryEnd = _projectHistory.Count;
         EditorPrefs.SetInt(ProjectPlanningEndPref, _planningHistoryEnd);
         SaveProjectPlan();
 
@@ -672,10 +647,8 @@ public partial class ClaunityWindow
         StopProjectLoading();
         UpdateProjectControls();
 
-        // Switch back to chat phase and show completion report
         ShowProjectChatPhase();
 
-        // Build summary of completed tasks
         var allTasks = GetAllTasks();
         var sb = new System.Text.StringBuilder();
         sb.AppendLine("🎉 Project complete! Here's what was built:");
@@ -690,14 +663,12 @@ public partial class ClaunityWindow
 
         AddProjectMessage(sb.ToString().Trim(), isUser: false);
 
-        // Hide input, show "Load New Project" button
         _projectInputArea?.AddToClassList("project-input-area--hidden");
         _projectDoneBar?.RemoveFromClassList("project-start-bar--hidden");
     }
 
     private void OnNewProjectClicked()
     {
-        // Delete saved plan and reset state
         if (File.Exists(ProjectPlanPath))
             File.Delete(ProjectPlanPath);
         AssetDatabase.Refresh();
@@ -715,11 +686,9 @@ public partial class ClaunityWindow
         EditorPrefs.DeleteKey(ProjectPlanningEndPref);
         _planningHistoryEnd = 0;
 
-        // Restore input area and hide done bar
         _projectInputArea?.RemoveFromClassList("project-input-area--hidden");
         _projectDoneBar?.AddToClassList("project-start-bar--hidden");
 
-        // Clear project chat and go back to idle splash
         if (_projectChatContainer != null) _projectChatContainer.Clear();
         if (_projectFileInfo != null) _projectFileInfo.text = "";
         _projectActiveArea?.AddToClassList("project-active-area--hidden");
@@ -740,7 +709,7 @@ public partial class ClaunityWindow
         SetProjectBoardStatus(isRetry ? $"🔁  Retrying: {task.name}" : $"🔄  {task.name}");
         StartProjectLoading(task.name);
 
-        _taskHistoryStart = _projectHistory.Count; // per-task history window starts here
+        _taskHistoryStart = _projectHistory.Count;
         EditorPrefs.SetBool(ProjectExecutingPref, true);
         EditorPrefs.SetInt(ProjectExecutingTaskPref, taskId);
         yield return PostProjectRequest(BuildTaskPrompt(task), taskId, null);
@@ -754,7 +723,6 @@ public partial class ClaunityWindow
 
         _projectHistory.Add(new HistoryMessage { role = "user", content = message });
 
-        // Build project_files context with completed tasks list
         var projectFiles = _projectContext ?? "";
         var doneTasks = GetAllTasks().Where(t => t.status == "done").Select(t => t.name).ToArray();
         if (doneTasks.Length > 0)
@@ -815,11 +783,9 @@ public partial class ClaunityWindow
             var toolName  = response.tool_name;
             var toolInput = response.tool_input_json ?? "{}";
 
-            // Show Claude's narration as a project message
             if (!string.IsNullOrEmpty(response.narration))
                 AddProjectMessage(response.narration, false);
 
-            // Special workflow tools
             if (toolName == "task_complete")
             {
                 MarkProjectTaskDone(taskId);
@@ -827,27 +793,23 @@ public partial class ClaunityWindow
             }
             if (toolName == "ask_user")
             {
-                // Extract question from tool input JSON
                 var q = ExtractStringField(toolInput, "question");
                 ShowProjectQuestion(taskId, q);
                 yield break;
             }
 
-            // Execute Unity tool
             var action     = BuildActionFromTool(toolName, toolInput);
             var toolResult = ClaunityActionExecutor.Execute(action);
 
-            // Handle recompile → domain reload will resume via EditorPrefs
             if (toolName == "recompile_scripts")
             {
                 EditorPrefs.SetBool(ProjectResumingPref, true);
                 EditorPrefs.SetInt(ProjectResumeTaskPref, taskId);
                 SaveProjectPlan();
-                // Send result before yielding so session stays alive
                 var recompileResult = toolResult ?? "✓ Recompile triggered";
                 yield return SendToolContinue(response.session_id, response.tool_use_id, recompileResult,
                     r => response = r);
-                yield break; // domain reload will resume
+                yield break;
             }
 
             var resultStr = (toolResult != null && toolResult.StartsWith("[IMAGE:"))
@@ -865,11 +827,9 @@ public partial class ClaunityWindow
         _projectHistory.Add(new HistoryMessage { role = "assistant", content = finalReply });
         SaveProjectPlan();
 
-        // Any final text = task done (Claude used tools to execute, then wrote summary)
         MarkProjectTaskDone(taskId);
     }
 
-    // Send /chat/continue and update response reference
     private IEnumerator SendToolContinue(string sessionId, string toolUseId, string toolResult,
         System.Action<ChatResponse> setResponse)
     {
@@ -896,7 +856,6 @@ public partial class ClaunityWindow
         setResponse(next);
     }
 
-    // Extract a string field from a simple JSON object (no full JSON parser needed)
     private static string ExtractStringField(string json, string field)
     {
         var key = "\"" + field + "\"";
@@ -947,7 +906,6 @@ public partial class ClaunityWindow
         {
             _projectVerifying = false;
             _projectExecuting = false;
-            // All tasks are done — complete the project even if verification call failed
             CompleteProject($"⚠️ Verification step failed ({error}), but all tasks were executed.");
             return;
         }
@@ -1003,7 +961,6 @@ public partial class ClaunityWindow
 
         if (_plan.state == "paused" || _plan.state == "stopped")
         {
-            // Resume
             _plan.state = "executing";
             SaveProjectPlan();
             _projectPauseRequested = false;
@@ -1014,11 +971,9 @@ public partial class ClaunityWindow
         }
         else
         {
-            // Request pause after current task
             _projectPauseRequested = true;
             EditorPrefs.SetBool(ProjectPausePref, true);
             SetProjectBoardStatus("⏸  Pause requested — finishing current task...");
-            // Immediately update button so user sees feedback right away
             if (_projectPauseBtn != null)
             {
                 _projectPauseBtn.text = "⏸  Pausing...";
@@ -1030,7 +985,6 @@ public partial class ClaunityWindow
     private void OnProjectContinueClicked()
     {
         if (_plan == null || _plan.state != "executing") return;
-        // Force-reset any stuck in_progress task back to pending so it gets retried
         foreach (var t in GetAllTasks())
             if (t.status == "in_progress") t.status = "pending";
         RefreshProjectBoard();
@@ -1068,7 +1022,6 @@ public partial class ClaunityWindow
                 _projectPauseBtn.AddToClassList("project-pause-btn");
             }
         }
-        // Continue: available any time while executing (lets user unstick a hung task)
         if (_projectContinueBtn != null)
             _projectContinueBtn.SetEnabled(!planReady && executing && !done);
     }
@@ -1237,7 +1190,6 @@ public partial class ClaunityWindow
         StartProjectLoading("Continuing...");
         UpdateProjectControls();
 
-        // Don't restart the whole task — just tell Claude compilation succeeded and ask it to continue
         const string continueMsg = "Compilation succeeded. Continue with any remaining steps for this task, or confirm completion with task_complete: true.";
         EditorApplication.delayCall += () =>
             EditorCoroutineUtility.StartCoroutineOwnerless(PostProjectRequest(continueMsg, taskId, null));
@@ -1303,7 +1255,6 @@ public partial class ClaunityWindow
     }
 
     private ProjectTask GetNextPendingTask() =>
-        // In-progress tasks take priority — they are stuck and need a retry
         GetAllTasks().FirstOrDefault(t => t.status == "in_progress")
         ?? GetAllTasks().FirstOrDefault(t => t.status == "pending");
 

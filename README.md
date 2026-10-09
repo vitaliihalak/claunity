@@ -15,7 +15,7 @@ It runs a small **local** Python backend on your machine and talks to Claude wit
 
 ## What it does
 
-The window has four tabs (Project, Test and Scout are marked BETA in the UI):
+The window has five tabs (Project, Test and Scout are marked BETA in the UI):
 
 | Tab | What it is for |
 |---|---|
@@ -23,6 +23,7 @@ The window has four tabs (Project, Test and Scout are marked BETA in the UI):
 | **Test** | Play-and-test: it enters Play Mode, looks at screenshots and the console, and reports what it found. |
 | **Project** | Describe a bigger goal; it asks clarifying questions, writes an epic/task plan, then executes the tasks one by one. |
 | **Scout** | Describe an asset you need; it searches for matching Unity Asset Store packages with prices. |
+| **Build** | Configure and run a player build. Smart Build fixes compile errors and retries, up to 5 attempts. |
 
 Under the hood the assistant has about 75 editor tools: scene and GameObject inspection and editing, components and serialized properties, scripts (create, edit, validate, recompile), materials, prefabs, scenes, UI elements, animator controllers, input actions, audio, packages, tags and layers, physics and time settings, NavMesh baking, Play Mode control, screenshots, console logs, performance stats and player builds.
 
